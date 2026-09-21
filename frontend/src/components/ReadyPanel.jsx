@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { api } from '../lib/api.js';
 import { signTransactionBase64 } from '../lib/wallet.js';
 import { settleReceiptOnchain } from '../lib/onchain.js';
-import { formatRaw, formatUsd, pctFromDecimalString } from '../lib/format.js';
+import { formatRaw, formatUsd, pctFromDecimalString, formatActionError } from '../lib/format.js';
 import ExposureBar from './ExposureBar.jsx';
 import PremiumGauge from './PremiumGauge.jsx';
+import ExplainBeforeSigning from './ExplainBeforeSigning.jsx';
 
 /**
  * Review and execute. Nothing is signed until the user has seen exactly what
@@ -31,7 +32,7 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
         setBlocked({ ...err.body.firewall, detail: err.body.detail });
         onExecuted?.({ blocked: true });
       } else {
-        setError(err.body?.detail || err.message);
+        setError(formatActionError(err));
       }
       setPhase('idle');
     }
@@ -93,13 +94,19 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
       setPhase('done');
       onExecuted?.(result);
     } catch (err) {
-      setError(err.body?.detail || err.message);
+      if (err.body?.reason === 'POLICY_CHANGED') {
+        setError('This rule changed after you reviewed it, so nothing was signed. Hit Reset and review it again.');
+      } else {
+        setError(formatActionError(err));
+      }
       setPhase('review');
     }
   }
 
   const quote = prepared?.quote ?? evaluation.quote;
   const math = evaluation.math;
+  const policySummary = prepared?.evaluation?.policySummary ?? evaluation.policySummary;
+  const firewall = prepared?.evaluation?.firewall ?? evaluation.firewall;
 
   return (
     <div className="card tight" style={{ marginTop: 14, borderColor: 'var(--flow)' }}>
@@ -133,6 +140,10 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
           <Meta k="Max slippage" v={`${rule.maxSlippageBps} bps`} />
           <Meta k="Route" v={(quote.routePlan || []).map((r) => r.label).join(' → ') || '-'} />
         </div>
+      )}
+
+      {phase === 'review' && (
+        <ExplainBeforeSigning rule={rule} summary={policySummary} firewall={firewall} quote={quote} />
       )}
 
       {prepared?.stage === 'WITHDRAW' && (

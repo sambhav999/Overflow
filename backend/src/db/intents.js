@@ -15,20 +15,20 @@ import { getDb, nowIso } from './index.js';
  */
 const COLS = `id, rule_id, wallet, kind, stage, execution_key, message_hash, jupiter_request_id,
   authorised_raw, source_mint, destination_mint, snapshot_json, withdrawn_raw, status,
-  created_at, updated_at`;
+  guard_hash, created_at, updated_at`;
 
 export function createIntent(input) {
   const db = getDb();
   const id = randomUUID();
   const ts = nowIso();
-  db.prepare(`INSERT INTO execution_intents (${COLS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+  db.prepare(`INSERT INTO execution_intents (${COLS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     id, input.ruleId, input.wallet, input.kind, input.stage, input.executionKey,
     input.messageHash ?? null, input.jupiterRequestId ?? null,
     input.authorisedRaw != null ? String(input.authorisedRaw) : null,
     input.sourceMint ?? null, input.destinationMint ?? null,
     input.snapshot ? JSON.stringify(input.snapshot) : null,
     input.withdrawnRaw != null ? String(input.withdrawnRaw) : null,
-    'OPEN', ts, ts,
+    'OPEN', input.guardHash ?? null, ts, ts,
   );
   return getIntent(id);
 }
@@ -77,7 +77,8 @@ function hydrate(r) {
     executionKey: r.execution_key, messageHash: r.message_hash, jupiterRequestId: r.jupiter_request_id,
     authorisedRaw: r.authorised_raw, sourceMint: r.source_mint, destinationMint: r.destination_mint,
     snapshot: r.snapshot_json ? safeParse(r.snapshot_json) : null,
-    withdrawnRaw: r.withdrawn_raw, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at,
+    withdrawnRaw: r.withdrawn_raw, status: r.status, guardHash: r.guard_hash ?? null,
+    createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
 function safeParse(s) { try { return JSON.parse(s); } catch { return null; } }

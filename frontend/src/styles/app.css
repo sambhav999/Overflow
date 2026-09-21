@@ -195,7 +195,7 @@ a { color: var(--flow); }
   font-size: 16px; font-weight: 650; letter-spacing: -.03em; color: var(--ink);
 }
 .tag { color: var(--soft); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mast-right { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-self: end; grid-area: wallet; }
+.mast-right { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-self: end; grid-area: wallet; position: relative; }
 
 .nav {
   display: flex;
@@ -853,6 +853,28 @@ a { color: var(--flow); }
   background: var(--flow); border: 2px solid var(--panel-soft);
 }
 .wallet-chip .addr { font-family: var(--mono); color: var(--ink); }
+.wallet-sol {
+  font-family: var(--mono);
+  color: var(--flow);
+  font-size: 11px;
+  padding-right: 2px;
+  white-space: nowrap;
+}
+.wallet-sol.is-low { color: var(--warn); }
+.wallet-sol-warn {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 8;
+  max-width: 240px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: 12px;
+  line-height: 1.4;
+  border: 1px solid var(--warn-border);
+}
 .wallet-chip .disconnect-btn {
   width: 22px; height: 22px; border-radius: 50%; border: none; background: transparent; color: var(--soft);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -894,39 +916,26 @@ a { color: var(--flow); }
   font-size: 14px;
   line-height: 1.55;
 }
-.wallet-modal-source {
-  margin: 0 0 10px !important;
-  color: var(--flow) !important;
-  font-size: 13px;
-}
-.wallet-modal-error {
-  margin: 0 0 12px !important;
-  color: var(--bad) !important;
+.wallet-modal-copy {
+  margin: 0 0 16px !important;
+  color: var(--soft) !important;
   font-size: 14px;
-  line-height: 1.5;
-  font-weight: 550;
+  line-height: 1.55;
 }
 .wallet-modal-hint {
-  margin: 0 0 14px !important;
-  color: var(--soft) !important;
+  margin: 0 0 16px !important;
+  color: var(--muted, var(--soft)) !important;
   font-size: 13px;
   line-height: 1.55;
 }
-.wallet-modal-log {
+.wallet-modal-steps {
   margin: 0 0 16px;
-  max-height: 180px;
-  overflow: auto;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(7, 10, 24, .72);
-  border: 1px solid rgba(196, 181, 253, .14);
-  color: var(--soft);
-  font-family: var(--mono);
-  font-size: 10px;
-  line-height: 1.45;
-  white-space: pre-wrap;
-  word-break: break-word;
+  padding-left: 18px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
 }
+.wallet-modal-steps li { margin: 0 0 8px; }
 .wallet-modal-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1364,6 +1373,30 @@ input[type=checkbox] { accent-color: var(--flow); width: 15px; height: 15px; }
 
 .blocked-hero { border: 1px solid var(--bad-border); background: var(--bad-soft); border-radius: 12px; padding: 14px; margin-top: 14px; }
 .blocked-title { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--bad); letter-spacing: .06em; }
+
+/* ------------------------------------------------ explain before signing -- */
+.explain-panel {
+  border: 1px dashed var(--rule); border-radius: 12px; padding: 14px; margin-top: 14px;
+  background: var(--panel-soft);
+}
+.explain-title {
+  font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  color: var(--soft); text-transform: uppercase; margin-bottom: 4px;
+}
+
+/* ------------------------------------------------------ firewall summary -- */
+.firewall-summary { margin-top: 14px; }
+.firewall-summary-label {
+  font-family: var(--mono); font-size: 11px; color: var(--soft); text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: 8px;
+}
+
+/* ------------------------------------------------------------- demo mode -- */
+.demo-banner {
+  display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: .05em; color: var(--warn); background: var(--warn-soft); border: 1px solid var(--warn-border);
+  border-radius: 8px; padding: 8px 12px; margin-top: 14px;
+}
 
 @media (max-width: 680px) {
   .income-hero { grid-template-columns: 1fr; }

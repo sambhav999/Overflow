@@ -3,9 +3,22 @@ import express from 'express';
 import cors from 'cors';
 import { router } from './routes/index.js';
 import { getDb } from './db/index.js';
+import { seedDemoData } from './db/seedDemo.js';
 import { startPoller } from './poller/poll.js';
 import { limiterConfig } from './adapters/jupiter/client.js';
 import { refreshAssets } from './services/assets.js';
+
+/*
+ * Judge Demo Mode. Forced BEFORE the first getDb() call below, since the
+ * database is a module-level singleton that opens on first use -- setting
+ * this after would have no effect. Real external APIs (xStocks, PreStocks,
+ * Jupiter) and the public RPC fallback (already the default when
+ * SOLANA_RPC_URL is unset) are still used; only persistence is ephemeral and
+ * only fund-moving routes are blocked (see routes/index.js's
+ * blockedInDemoMode).
+ */
+const DEMO_MODE = process.env.DEMO_MODE === 'true';
+if (DEMO_MODE) process.env.DATABASE_PATH = ':memory:';
 
 const app = express();
 const PORT = Number(process.env.PORT || 8787);
@@ -56,6 +69,7 @@ app.get('/', (_req, res) => {
 app.use((req, res) => res.status(404).json({ error: `no route for ${req.method} ${req.path}` }));
 
 getDb();
+if (DEMO_MODE) seedDemoData();
 startPoller();
 
 // Warm the xStocks catalogue in the background so the first request does not
@@ -66,6 +80,7 @@ refreshAssets({ force: true })
 
 app.listen(PORT, () => {
   console.log(`Overflow API on http://localhost:${PORT}`);
+  if (DEMO_MODE) console.log('  Mode:    JUDGE DEMO MODE — in-memory DB, seeded data, fund-moving routes blocked');
   console.log(`  RPC:     ${process.env.SOLANA_RPC_URL ? 'configured' : 'PUBLIC (rate-limited; set SOLANA_RPC_URL)'}`);
   const lim = limiterConfig();
   console.log(`  Jupiter: ${lim.keyed ? 'API key set' : 'keyless'} · throttled to ${lim.mainRps} req/s (execute ${lim.executeRps}/s)`);

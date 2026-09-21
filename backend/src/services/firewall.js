@@ -74,6 +74,7 @@ export async function runFirewall({ rule, amountAtomic, inputMint, intentKey, qu
       outDecimals: outDecimals ?? null,
       // Only a price judgement counts toward "earnings retained".
       countsAsRetained: evaluation.decision !== 'PASS' && POLICY_BREACHES.has(evaluation.breach),
+      checkedAt: new Date().toISOString(),
     },
   });
 

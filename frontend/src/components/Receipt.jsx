@@ -1,20 +1,24 @@
+import { useState } from 'react';
 import { formatRaw, formatUsd, formatDateTime, explorerUrl, shortAddress } from '../lib/format.js';
+import { api } from '../lib/api.js';
 import Verdict from './Verdict.jsx';
 
 /**
- * The receipt is the product. It shows the inputs the decision was made on, the
- * outputs, and the preservation proof -- not just a success message.
+ * Proof of Preservation. It shows the inputs the decision was made on, the
+ * outputs, and -- explicitly, as numbers rather than just a checkmark --
+ * what was authorised to move, what was actually observed to move, and that
+ * protected capital was never touched.
  */
 export default function Receipt({ receipt }) {
   if (!receipt) return null;
-  const { inputs = {}, outputs = {}, kind, mode, status } = receipt;
+  const { inputs = {}, outputs = {}, proofs = {}, kind, mode, status } = receipt;
   const isDividend = kind === 'DIVIDEND';
   const failed = status !== 'CONFIRMED';
 
   return (
     <div className="receipt">
       <div className="receipt-title">
-        {isDividend ? 'DIVIDEND RULE' : 'INTEREST RULE'} - {status}
+        PROOF OF PRESERVATION — {isDividend ? 'DIVIDEND RULE' : 'INTEREST RULE'} · {status}
         {mode === 'REPLAY' && ' · REPLAY'}
       </div>
       <Verdict
@@ -54,6 +58,13 @@ export default function Receipt({ receipt }) {
       )}
 
       <hr />
+      <Row k="Authorized spend" v={proofs.authorisedSourceDelta != null ? absAtomic(proofs.authorisedSourceDelta, isDividend, inputs) : '-'} />
+      <Row k="Observed spend" v={proofs.observedSourceDelta != null ? absAtomic(proofs.observedSourceDelta, isDividend, inputs) : '-'} />
+      <Row k="Protected capital intentionally consumed"
+           v={receipt.preserved === true ? `${formatUsd('0')} ✓` : (receipt.preserved === false ? 'NOT VERIFIED' : '—')}
+           className={receipt.preserved === true ? 'preserved-yes' : (receipt.preserved === false ? 'bad' : '')} />
+
+      <hr />
       {receipt.signature ? (
         <Row k="Solana tx" v={<a href={explorerUrl(receipt.signature)} target="_blank" rel="noreferrer">{shortAddress(receipt.signature, 8)}</a>} />
       ) : (
@@ -62,6 +73,7 @@ export default function Receipt({ receipt }) {
       {receipt.onchainSignature && (
         <Row k="Registry tx" v={<a href={explorerUrl(receipt.onchainSignature)} target="_blank" rel="noreferrer">{shortAddress(receipt.onchainSignature, 8)}</a>} />
       )}
+      {receipt.policyHash && <Row k="Policy hash" v={`${receipt.policyHash.slice(0, 8)}…${receipt.policyHash.slice(-6)}`} />}
       <Row k="Timestamp" v={formatDateTime(receipt.createdAt)} />
       {receipt.error && <div className="notice bad" style={{ marginTop: 10 }}>{receipt.error}</div>}
       {status === 'PARTIAL' && (
@@ -70,6 +82,50 @@ export default function Receipt({ receipt }) {
           is recorded as stranded; the next execution sweeps it before withdrawing anything more.
         </div>
       )}
+      {status === 'CONFIRMED' && <ProofDownload receipt={receipt} />}
+    </div>
+  );
+}
+
+/** authorisedSourceDelta/observedSourceDelta are signed atomic deltas (a spend is negative). */
+function absAtomic(v, isDividend, inputs) {
+  try {
+    const n = BigInt(v);
+    const abs = (n < 0n ? -n : n).toString();
+    return isDividend ? `${formatRaw(abs, 8, 8)} ${inputs.symbol ?? ''}` : formatUsd(abs);
+  } catch {
+    return '-';
+  }
+}
+
+function ProofDownload({ receipt }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function download() {
+    setBusy(true); setError(null);
+    try {
+      const proof = await api.receiptProof(receipt.ruleId, receipt.id);
+      const blob = new Blob([JSON.stringify(proof, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `overflow-proof-${receipt.id}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="controls" style={{ marginTop: 10 }}>
+      <button className="btn small" onClick={download} disabled={busy}>
+        {busy ? 'Preparing…' : 'Download proof JSON'}
+      </button>
+      {error && <span className="pill bad">{error}</span>}
     </div>
   );
 }

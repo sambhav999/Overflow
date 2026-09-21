@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { signTransactionBase64 } from '../lib/wallet.js';
-import { formatUsd, explorerUrl, shortAddress } from '../lib/format.js';
+import { formatUsd, explorerUrl, shortAddress, formatActionError } from '../lib/format.js';
+
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 /**
  * Deposit and principal withdrawal for a Kamino interest rule.
@@ -17,10 +19,23 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [pending, setPending] = useState(null);
+  const [usdcAtomic, setUsdcAtomic] = useState(null);
 
   useEffect(() => {
     api.pendingFunds(rule.id).then(setPending).catch(() => {});
   }, [rule.id, result]);
+
+  useEffect(() => {
+    if (!connection?.address) {
+      setUsdcAtomic(null);
+      return undefined;
+    }
+    let cancelled = false;
+    api.tokenBalance(connection.address, USDC_MINT)
+      .then((r) => { if (!cancelled) setUsdcAtomic(r.balance?.rawAtomic ?? '0'); })
+      .catch(() => { if (!cancelled) setUsdcAtomic(null); });
+    return () => { cancelled = true; };
+  }, [connection?.address, result]);
 
   async function signAndSend(prepared, submitFn) {
     const signed = await signTransactionBase64({
@@ -41,7 +56,7 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
       setAmount('');
       await onChanged();
     } catch (err) {
-      setError(err.body?.detail || err.message);
+      setError(formatActionError(err));
     } finally { setPhase('idle'); }
   }
 
@@ -50,7 +65,7 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
     try {
       setWithdrawPlan(await api.withdrawPrincipal(rule.id));
     } catch (err) {
-      setError(err.body?.detail || err.message);
+      setError(formatActionError(err));
       setWithdrawPlan(null);
     } finally { setPhase('idle'); }
   }
@@ -64,11 +79,15 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
       setWithdrawPlan(null);
       await onChanged();
     } catch (err) {
-      setError(err.body?.detail || err.message);
+      setError(formatActionError(err));
     } finally { setPhase('idle'); }
   }
 
   const busy = phase !== 'idle';
+  let depositNeed = null;
+  try { depositNeed = amount ? BigInt(toAtomic(amount, 6)) : null; } catch { depositNeed = null; }
+  const walletUsdc = usdcAtomic == null ? null : BigInt(usdcAtomic);
+  const notEnoughUsdc = depositNeed != null && walletUsdc != null && walletUsdc < depositNeed;
 
   return (
     <div className="card tight" style={{ marginTop: 14 }}>
@@ -80,6 +99,7 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
         {pending && BigInt(pending.totalAtomic || '0') > 0n && (
           <M k="Withdrawn, awaiting swap" v={formatUsd(pending.totalAtomic)} />
         )}
+        {usdcAtomic != null && <M k="Wallet USDC" v={formatUsd(usdcAtomic)} />}
       </div>
 
       <div className="grid2" style={{ marginTop: 14 }}>
@@ -88,9 +108,14 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
           <input type="number" min="0" step="10" value={amount} disabled={busy}
                  onChange={(e) => setAmount(e.target.value)} placeholder="1000" />
           <div className="hint">The floor rises by the confirmed amount, never by the position value.</div>
+          {notEnoughUsdc && (
+            <div className="hint" style={{ color: 'var(--warn)' }}>
+              Not enough USDC. This wallet holds {formatUsd(usdcAtomic)}.
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-          <button className="btn primary" onClick={handleDeposit} disabled={busy || !amount || !connection}>
+          <button className="btn primary" onClick={handleDeposit} disabled={busy || !amount || !connection || notEnoughUsdc}>
             {phase === 'depositing' ? 'Preparing…' : phase === 'signing' ? 'Waiting for wallet…' : 'Deposit'}
           </button>
           <button className="btn danger" onClick={loadWithdrawPlan} disabled={busy || !connection || !rule.principalFloorAtomic}>

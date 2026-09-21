@@ -53,6 +53,26 @@ export function formatRelative(iso) {
   return ms > 0 ? `in ${days}d` : `${days}d ago`;
 }
 
+/** Turn a failed money-move API body into a sentence a user can act on. */
+export function formatActionError(err) {
+  const reason = err?.body?.reason;
+  const detail = err?.body?.detail || err?.message || 'Request failed';
+  if (reason === 'INSUFFICIENT_SOL') {
+    return detail || 'Not enough SOL in this wallet to pay fees.';
+  }
+  if (reason === 'INSUFFICIENT_USDC') {
+    const m = String(detail).match(/holds (\d+) atomic USDC, needs (\d+)/);
+    if (m) {
+      return `This wallet holds ${formatUsd(m[1])} USDC. You need ${formatUsd(m[2])} USDC for this deposit.`;
+    }
+    return 'Not enough USDC in this wallet for this deposit.';
+  }
+  if (reason === 'INSUFFICIENT_SOURCE_BALANCE') {
+    return 'Not enough of the source token in this wallet to complete the swap.';
+  }
+  return detail;
+}
+
 export function pctFromDecimalString(s, places = 4) {
   if (s === null || s === undefined) return '-';
   const n = Number(s);

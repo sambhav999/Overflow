@@ -275,6 +275,11 @@ export default function App() {
       {!connection && tab === 'rules' && <Hero health={health} />}
 
       <div className="wrap" id="main">
+        {health?.demoMode && (
+          <div className="demo-banner" role="status">
+            JUDGE DEMO MODE — in-memory data, real external APIs, fund-moving routes disabled
+          </div>
+        )}
         {error && <p className="page-status" role="status">{error}</p>}
 
       <div className="page" key={tab}>

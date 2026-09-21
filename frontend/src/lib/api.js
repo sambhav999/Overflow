@@ -20,34 +20,72 @@ const BASE = resolveApiBase();
 trace('api:base', { BASE });
 
 /*
- * Session token from wallet sign-in. Kept in sessionStorage so a reload keeps
- * you signed in, but closing the tab ends it. Keyed by wallet so switching
- * wallets can never reuse another wallet's session.
+ * Session token from wallet sign-in. Stored in localStorage so a refresh keeps
+ * you signed in until expiresAt. Keyed by wallet so switching wallets can never
+ * reuse another wallet's session.
  */
 let session = null; // { wallet, token, expiresAt }
 const storageKey = (wallet) => `overflow.session.${wallet}`;
+const LAST_WALLET = 'overflow.lastWallet';
 const onAuthLost = new Set();
+
+function readStore(wallet) {
+  if (!wallet) return null;
+  const key = storageKey(wallet);
+  for (const store of [sessionStorage, localStorage]) {
+    try {
+      const raw = store.getItem(key);
+      if (!raw) continue;
+      const s = JSON.parse(raw);
+      if (!s?.token || new Date(s.expiresAt).getTime() <= Date.now()) continue;
+      return s;
+    } catch { /* ignore */ }
+  }
+  return null;
+}
+
+function writeStore(s) {
+  const raw = JSON.stringify(s);
+  for (const store of [sessionStorage, localStorage]) {
+    try { store.setItem(storageKey(s.wallet), raw); } catch { /* ignore */ }
+  }
+  try { localStorage.setItem(LAST_WALLET, s.wallet); } catch { /* ignore */ }
+}
+
+function dropStore(wallet) {
+  if (wallet) {
+    for (const store of [sessionStorage, localStorage]) {
+      try { store.removeItem(storageKey(wallet)); } catch { /* ignore */ }
+    }
+  }
+  try {
+    const last = localStorage.getItem(LAST_WALLET);
+    if (!wallet || last === wallet) localStorage.removeItem(LAST_WALLET);
+  } catch { /* ignore */ }
+}
 
 export function setSession(s) {
   session = s;
-  try {
-    if (s) sessionStorage.setItem(storageKey(s.wallet), JSON.stringify(s));
-  } catch { /* storage unavailable: session lives in memory only */ }
+  if (s) writeStore(s);
 }
 
 export function restoreSession(wallet) {
-  try {
-    const raw = sessionStorage.getItem(storageKey(wallet));
-    if (!raw) return null;
-    const s = JSON.parse(raw);
-    if (!s?.token || new Date(s.expiresAt).getTime() <= Date.now()) return null;
-    session = s;
-    return s;
-  } catch { return null; }
+  const s = readStore(wallet);
+  if (!s) return null;
+  session = s;
+  return s;
+}
+
+export function peekLastWallet() {
+  try { return localStorage.getItem(LAST_WALLET) || null; } catch { return null; }
+}
+
+export function restoreLastSession() {
+  return restoreSession(peekLastWallet());
 }
 
 export function clearSession(wallet) {
-  try { if (wallet) sessionStorage.removeItem(storageKey(wallet)); } catch { /* ignore */ }
+  dropStore(wallet);
   session = null;
 }
 
@@ -128,6 +166,7 @@ export const api = {
   reconfirmBaseline: (id) => request(`/rules/${id}/reconfirm-baseline`, { method: 'POST', body: {} }),
 
   receipts: () => request('/receipts'),
+  receiptProof: (ruleId, receiptId) => request(`/rules/${ruleId}/receipts/${receiptId}/proof`),
   transactions: () => request('/transactions'),
   decisions: () => request('/decisions'),
   portfolio: () => request('/portfolio'),

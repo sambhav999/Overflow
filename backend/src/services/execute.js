@@ -11,7 +11,7 @@
 import { getOrder, executeOrder } from '../adapters/jupiter/client.js';
 import { applyQuoteGuards } from '../core/ruleEngine.js';
 import { STATUS } from '../core/ruleEngine.js';
-import { createReceipt, hasConfirmedExecution } from '../db/receipts.js';
+import { createReceipt, hasConfirmedExecution, updateReceipt } from '../db/receipts.js';
 import { markSnapshotProcessed } from '../db/snapshots.js';
 import { recordStranded } from '../db/stranded.js';
 import { getSolBalanceLamports, getTokenBalance, USDC_MINT, transactionMessageHash } from '../adapters/solana/rpc.js';
@@ -22,6 +22,9 @@ import { runFirewall } from './firewall.js';
 import { evaluateRule } from './evaluate.js';
 import { prepareHarvestWithdrawal, pendingSwapFunds } from './kaminoFlows.js';
 import { markSwept } from '../db/stranded.js';
+import { computePolicyHash } from '../core/policyHash.js';
+import { signProof, verifierPublicKey } from '../core/verifierKey.js';
+import { buildProofPayload } from './proof.js';
 
 /** A firewall block: a normal, expected outcome -- not an error. */
 function firewallBlocked(fw, evaluation, consequence) {
@@ -193,6 +196,9 @@ export async function prepareExecution(rule) {
     authorisedRaw: evaluation.intent.inputRawAtomic,
     sourceMint: evaluation.intent.inputMint,
     destinationMint: evaluation.intent.outputMint,
+    // Freezes the guard config this execution was reviewed against; submit
+    // refuses to act if the rule's guards changed since.
+    guardHash: computePolicyHash(rule),
     snapshot: {
       rawBalanceAtomic: evaluation.snapshot?.rawBalanceAtomic ?? null,
       multiplierBefore: evaluation.snapshot?.multiplierBefore ?? null,
@@ -287,6 +293,16 @@ export async function submitExecution({ rule, signedTransactionBase64, requestId
         received: signedHash,
       };
     }
+    // Policy freeze: refuse if the rule's guard configuration changed since this
+    // execution was prepared. `rule` is loaded fresh per-request, so this catches
+    // an edit made between prepare and submit.
+    if (intent.guardHash && computePolicyHash(rule) !== intent.guardHash) {
+      return {
+        ok: false,
+        reason: 'POLICY_CHANGED',
+        detail: "This rule's guard configuration changed after the execution was prepared. Nothing was broadcast — re-review and prepare again.",
+      };
+    }
   }
 
   let result;
@@ -368,7 +384,7 @@ export async function submitExecution({ rule, signedTransactionBase64, requestId
     };
   }
 
-  const receipt = createReceipt({
+  let receipt = createReceipt({
     ruleId: rule.id,
     wallet: rule.wallet,
     kind: rule.earningsType,
@@ -395,7 +411,20 @@ export async function submitExecution({ rule, signedTransactionBase64, requestId
     destinationSymbol: rule.destinationSymbol,
     earningsUsdAtomic: context?.firewall?.earningsUsdAtomic
       ?? (rule.sourceType === 'KAMINO_USDC' ? (intent?.authorisedRaw ?? null) : null),
+    policyHash: intent?.guardHash ?? null,
   });
+
+  // Verifier attestation: sign the settlement proof so it can be checked offline
+  // against a known public key. Only for a chain-proven settlement -- signing an
+  // unverified or contradicted result would attest to something never proven.
+  if (verification.verification === VERIFICATION.VERIFIED) {
+    try {
+      const signature = signProof(JSON.stringify(buildProofPayload(receipt)));
+      receipt = updateReceipt(receipt.id, { verifierSignature: signature, verifierPubkey: verifierPublicKey() });
+    } catch (err) {
+      console.warn(`[verifier] failed to sign preservation proof for receipt ${receipt.id}: ${err.message}`);
+    }
+  }
 
   // Only a settled, non-contradicted execution closes out the event.
   if (rule.sourceType === 'XSTOCK_DIVIDEND' && verification.verification !== VERIFICATION.FAILED) {

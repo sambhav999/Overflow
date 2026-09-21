@@ -13,8 +13,9 @@ export function createReceipt(r) {
     (id, rule_id, wallet, kind, mode, status, execution_key, signature, slot,
      inputs_json, outputs_json, quote_json, error, created_at,
      verification, verification_note, preserved, proofs_json, intent_id,
-     destination_category, destination_symbol, earnings_usd_atomic)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+     destination_category, destination_symbol, earnings_usd_atomic,
+     policy_hash, verifier_signature, verifier_pubkey)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
     id, r.ruleId, r.wallet, r.kind, r.mode, r.status, r.executionKey,
     r.signature ?? null, r.slot != null ? String(r.slot) : null,
     JSON.stringify(r.inputs ?? {}), JSON.stringify(r.outputs ?? {}),
@@ -24,6 +25,7 @@ export function createReceipt(r) {
     r.proofs ? JSON.stringify(r.proofs) : null, r.intentId ?? null,
     r.destinationCategory ?? null, r.destinationSymbol ?? null,
     r.earningsUsdAtomic != null ? String(r.earningsUsdAtomic) : null,
+    r.policyHash ?? null, r.verifierSignature ?? null, r.verifierPubkey ?? null,
   );
   return getReceipt(id);
 }
@@ -78,6 +80,9 @@ function hydrate(row) {
     explorerUrl: row.signature ? `https://solscan.io/tx/${row.signature}` : null,
     onchainPda: row.onchain_pda ?? null,
     onchainSignature: row.onchain_signature ?? null,
+    policyHash: row.policy_hash ?? null,
+    verifierSignature: row.verifier_signature ?? null,
+    verifierPubkey: row.verifier_pubkey ?? null,
   };
 }
 
@@ -86,6 +91,8 @@ export function updateReceipt(id, patch) {
   const allowed = {
     onchainPda: 'onchain_pda',
     onchainSignature: 'onchain_signature',
+    verifierSignature: 'verifier_signature',
+    verifierPubkey: 'verifier_pubkey',
   };
   const sets = [];
   const values = [];

@@ -17,6 +17,7 @@
     "verify:kamino": "node scripts/verify-kamino.mjs",
     "preflight": "node scripts/preflight.mjs",
     "preflight:prod": "node scripts/preflight.mjs --prod",
+    "simulate:judge": "DEMO_MODE=true node src/index.js",
     "check": "npm run static:audit && npm test && npm run preflight",
     "static:audit": "node scripts/static-audit.mjs"
   },

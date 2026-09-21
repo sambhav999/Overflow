@@ -98,20 +98,42 @@ function isUserReject(err) {
   return code === 4001 || /reject|denied|cancel/i.test(message);
 }
 
-function isInternalConnectError(err) {
+export function isInternalConnectError(err) {
   return err?.code === -32603 || /^unexpected error$/i.test(String(err?.message || ''));
 }
 
 export function explainPhantomConnectError(err) {
   if (isUserReject(err)) return null;
+  if (err?.source === 'api') {
+    return {
+      title: 'Could not sign in',
+      message: 'Overflow could not verify this wallet. Try again in a moment.',
+      steps: [
+        'Keep Phantom unlocked on a Solana account.',
+        'Tap Try again and approve the sign-in message.',
+      ],
+    };
+  }
   if (isInternalConnectError(err)) {
     return {
       title: 'Phantom could not connect',
-      message: 'Phantom crashed inside sol_connect and hid the real reason as Unexpected error (code -32603). Overflow never reached the API.',
-      hint: 'Phantom hid the real crash behind that code. Unlock Phantom, select a Solana account, reload this tab, and try once. On workers.dev use Open in Phantom or localhost. The real line is in Phantom’s service worker console: RPC ROUTER Unexpected error in method sol_connect.',
+      message: 'Phantom did not finish connecting. Unlock it, pick a Solana account, then try once more.',
+      steps: [
+        'Unlock Phantom and choose a Solana account, not Ethereum.',
+        'In Phantom, open Connected apps and allow this site.',
+        'Reload this tab, then tap Try again once.',
+      ],
+      hint: 'If it still fails, open this site in the Phantom app.',
     };
   }
-  return null;
+  return {
+    title: 'Could not connect',
+    message: 'Phantom did not return an account. Unlock it and try again.',
+    steps: [
+      'Unlock Phantom and pick a Solana account.',
+      'Reload this tab, then tap Connect Phantom.',
+    ],
+  };
 }
 
 function wrapInjectedPhantom(provider) {
@@ -178,6 +200,40 @@ function reuseExistingSession() {
   return null;
 }
 
+async function silentTrust(provider, label) {
+  try {
+    await provider.connect({ onlyIfTrusted: true });
+  } catch (err) {
+    trace('phantom:onlyIfTrusted:skip', { label, code: err?.code, message: err?.message });
+  }
+  return fromProvider(provider);
+}
+
+/**
+ * Restore a previously approved Phantom session without a popup.
+ * Safe to call on page load. Returns null if Phantom is locked or not trusted yet.
+ */
+export async function restorePhantomIfTrusted() {
+  const reused = reuseExistingSession();
+  if (reused) return reused;
+  for (const { label, provider } of injectedProviders()) {
+    const trusted = await silentTrust(provider, label);
+    if (trusted) {
+      trace('phantom:silent:ok', { label, address: trusted.address });
+      return trusted;
+    }
+  }
+  for (const wallet of listStandardPhantoms()) {
+    try {
+      const connect = wallet.features[FEATURE_CONNECT]?.connect;
+      if (connect) await connect({ silent: true });
+    } catch { /* not trusted */ }
+    const connected = fromStandardWallet(wallet);
+    if (connected) return connected;
+  }
+  return null;
+}
+
 function recoverAfterFail(provider, err, label) {
   const connected = fromProvider(provider);
   if (connected) {
@@ -193,6 +249,9 @@ async function connectInjected(provider, label) {
     trace('phantom:already-connected', { label, address: existing.address });
     return existing;
   }
+
+  const trusted = await silentTrust(provider, label);
+  if (trusted) return trusted;
 
   trace('phantom:injected:attempt', { label, name: 'connect()' });
   try {

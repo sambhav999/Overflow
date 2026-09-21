@@ -55,7 +55,8 @@ try {
     ? pass('rules carry drift baselines')
     : fail('rules missing drift baseline columns');
 
-  if (prod && (process.env.DATABASE_PATH ?? '').includes(':memory:')) fail('in-memory database in production');
+  const demo = process.env.DEMO_MODE === 'true';
+  if (prod && !demo && (process.env.DATABASE_PATH ?? '').includes(':memory:')) fail('in-memory database in production');
 } catch (e) {
   fail('database unusable', e.message);
 }

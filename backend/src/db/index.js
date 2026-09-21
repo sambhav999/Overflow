@@ -233,6 +233,13 @@ function addColumns(d) {
     ['rules', 'onchain_signature TEXT'],
     ['receipts', 'onchain_pda TEXT'],
     ['receipts', 'onchain_signature TEXT'],
+    // Policy freeze: the guard-config hash the execution was prepared against.
+    ['execution_intents', 'guard_hash TEXT'],
+    ['receipts', 'policy_hash TEXT'],
+    // Verifier attestation: server signs the post-settlement proof, so it can be
+    // checked offline against a known public key rather than trusted on request.
+    ['receipts', 'verifier_signature TEXT'],
+    ['receipts', 'verifier_pubkey TEXT'],
   ];
   for (const [table, definition] of columns) {
     try { d.exec(`ALTER TABLE ${table} ADD COLUMN ${definition};`); } catch { /* already present */ }

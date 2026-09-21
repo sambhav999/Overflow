@@ -234,3 +234,33 @@ function fmtUsd(atomic) {
 function result(status, reason, guards, extra = {}) {
   return { status, reason, guards, ...extra };
 }
+
+/**
+ * Bundles the three numbers a Capital Firewall summary and an "explain before
+ * signing" view both need -- total position, protected floor, eligible
+ * earnings -- from data the engine already computed. Dividend and interest
+ * rules are denominated differently by design (raw token exposure vs. USD),
+ * so this tags the unit rather than forcing a false equivalence.
+ */
+export function buildPolicySummary(rule, evaluation) {
+  if (rule.sourceType === 'XSTOCK_DIVIDEND') {
+    const math = evaluation.math;
+    if (!math) return null;
+    return {
+      unit: 'TOKEN',
+      symbol: rule.sourceSymbol ?? rule.sourceId,
+      totalPosition: math.display.postEventExposure,
+      protectedFloor: math.display.preEventExposure,
+      eligibleEarnings: math.display.dividendExposure,
+    };
+  }
+  const position = evaluation.position;
+  if (!position || position.redeemableAtomic === undefined || position.redeemableAtomic === null) return null;
+  return {
+    unit: 'USD',
+    symbol: 'USDC',
+    totalPosition: position.redeemableAtomic,
+    protectedFloor: rule.principalFloorAtomic ?? null,
+    eligibleEarnings: evaluation.harvestableAtomic ?? '0',
+  };
+}

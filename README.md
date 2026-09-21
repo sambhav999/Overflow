@@ -1,6 +1,23 @@
-cna# Overflow
+# Overflow
 
 **Keep the source. Program the earnings.**
+
+## Judge quick-start
+
+No funded wallet or RPC key needed. Runs real external APIs (xStocks, PreStocks, Jupiter)
+against an in-memory database seeded with one completed, verified execution, and hard-blocks
+every fund-moving route so nothing can actually be signed or broadcast.
+
+```bash
+cd backend
+npm ci
+npm test                      # 30 tests, no network required
+npm run simulate:judge        # http://localhost:8787, DEMO_MODE=true
+```
+
+Then, separately, `cd frontend && npm install && npm run dev` (http://localhost:5173) and point
+it at the demo backend as usual — the on-chain registry step in Setup below is optional and can
+be skipped entirely for a judge run.
 
 Overflow is a programmable earnings layer for onchain assets. It preserves a source
 position and routes only the value that position **newly generates** into a destination
@@ -323,6 +340,8 @@ npm run dev                   # http://localhost:5173
 | `XSTOCKS_API_BASE` | no | Defaults to the public API; no auth needed. |
 | `POLL_INTERVAL_MS` | no | Blank = poll only on demand via `POST /api/poll`. |
 | `CRON_SECRET` | no | Required header for `/api/poll` when set. |
+| `VERIFIER_SIGNING_KEY` | **yes in production** | Ed25519 seed the server signs Proof of Preservation attestations with. Not a wallet key. |
+| `DEMO_MODE` | no | `true` runs Judge Demo Mode — see Judge quick-start above. Must be unset in a real deploy. |
 
 **frontend/.env** holds no secrets — Vite inlines `VITE_*` into the bundle.
 

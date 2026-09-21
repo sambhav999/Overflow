@@ -9,9 +9,11 @@ import { evaluateRule } from '../services/evaluate.js';
 import { prepareExecution, submitExecution } from '../services/execute.js';
 import { listReplayEvents, replayEvent } from '../services/replay.js';
 import { sdkStatus } from '../adapters/kamino/vault.js';
+import { limiterConfig } from '../adapters/jupiter/client.js';
 import { getSlot, getSolBalanceLamports, getTokenBalance, getMintInfo, getAccountOwnerProgram, SYSTEM_PROGRAM, USDC_MINT, getSignaturesForAddress } from '../adapters/solana/rpc.js';
 import { refreshBaselines } from '../services/drift.js';
-import { createNonce, verifySignIn, requireSession, SESSION_TTL_MS } from '../auth/session.js';
+import { createNonce, verifySignIn, requireSession, issueSession, SESSION_TTL_MS } from '../auth/session.js';
+import { DEMO_WALLET } from '../db/seedDemo.js';
 import { listAllDestinations, getDestination, PROVIDERS } from '../services/destinations.js';
 import { GUARD_MODES } from '../core/marketGuard.js';
 import { listDecisions, earningsRetained } from '../db/decisions.js';
@@ -19,6 +21,7 @@ import { incomePortfolio } from '../services/portfolio.js';
 import { previewRule } from '../services/preview.js';
 import { pollOnce } from '../poller/poll.js';
 import { mergeTransactionLog } from '../services/transactions.js';
+import { buildPreservationProof } from '../services/proof.js';
 import { prepareCreateRuleTx, preparePostReceiptTx, submitRegistryTx, registryStatus } from '../adapters/registry/service.js';
 import { rulePda, receiptPda } from '../adapters/registry/encoder.js';
 import {
@@ -54,6 +57,21 @@ function ownedRule(req, res) {
   return rule;
 }
 
+/**
+ * Judge Demo Mode fail-closed guard. Placed at the top of every route that
+ * broadcasts a signed transaction, so a judge running the seeded in-memory
+ * demo can review the whole flow up to signing but can never actually move
+ * funds. Returns true (and has already responded) if the request was blocked.
+ */
+function blockedInDemoMode(res) {
+  if (process.env.DEMO_MODE !== 'true') return false;
+  res.status(403).json({
+    error: 'Judge Demo Mode: fund-moving routes are disabled. This request would broadcast a real transaction.',
+    code: 'DEMO_MODE_BLOCKED',
+  });
+  return true;
+}
+
 router.get('/health', asyncRoute(async (_req, res) => {
   const [slot, kamino] = await Promise.all([getSlot().catch(() => null), sdkStatus()]);
   res.json({
@@ -69,6 +87,7 @@ router.get('/health', asyncRoute(async (_req, res) => {
     defaultKaminoVault: process.env.KAMINO_USDC_VAULT || null,
     registry: registryStatus(),
     mode: 'LIVE',
+    demoMode: process.env.DEMO_MODE === 'true',
   });
 }));
 
@@ -102,6 +121,17 @@ router.post('/auth/verify', asyncRoute(async (req, res) => {
 router.get('/auth/session', asyncRoute(async (req, res) => {
   const wallet = requireSession(req, res); if (!wallet) return;
   res.json({ wallet, ttlMs: SESSION_TTL_MS });
+}));
+
+/**
+ * Judge Demo Mode only: a session for the seeded demo wallet, with no wallet
+ * signature required. A judge with no funded Phantom wallet can still see the
+ * seeded rule and its verified Proof of Preservation. 404s (not just refuses)
+ * outside demo mode, so its existence is not even discoverable in production.
+ */
+router.get('/demo/session', asyncRoute(async (_req, res) => {
+  if (process.env.DEMO_MODE !== 'true') return res.status(404).json({ error: `no route for GET /demo/session` });
+  res.json({ ...issueSession(DEMO_WALLET), demo: true });
 }));
 
 /* ---------------------------------------------------------------- assets -- */
@@ -287,6 +317,7 @@ router.post('/rules/:id/prepare', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const { signedTransaction, requestId, executionKey, context, intentId } = req.body || {};
   if (!signedTransaction || !requestId || !executionKey) {
     return res.status(400).json({ error: 'signedTransaction, requestId and executionKey are required' });
@@ -309,6 +340,7 @@ router.post('/rules/:id/submit', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/onchain/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const { signedTransaction } = req.body || {};
   if (!signedTransaction) return res.status(400).json({ error: 'signedTransaction is required' });
   const submitted = await submitRegistryTx({ signedTransaction });
@@ -330,6 +362,7 @@ router.post('/rules/:id/onchain/submit', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/receipts/:receiptId/onchain/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const receipt = getReceipt(req.params.receiptId);
   if (!receipt || receipt.ruleId !== rule.id || receipt.wallet !== rule.wallet) {
     return res.status(404).json({ error: 'receipt not found' });
@@ -387,6 +420,7 @@ router.post('/rules/:id/deposit', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/deposit/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const { signedTransaction, context } = req.body || {};
   if (!signedTransaction || !context) return res.status(400).json({ error: 'signedTransaction and context are required' });
   const result = await submitDeposit({ rule, signedTransaction, context });
@@ -401,6 +435,7 @@ router.post('/rules/:id/deposit/submit', asyncRoute(async (req, res) => {
  */
 router.post('/rules/:id/harvest/withdraw/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const { signedTransaction, context } = req.body || {};
   if (!signedTransaction || !context) return res.status(400).json({ error: 'signedTransaction and context are required' });
   const result = await submitHarvestWithdrawal({ rule, signedTransaction, context });
@@ -421,6 +456,7 @@ router.post('/rules/:id/withdraw-principal', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/withdraw-principal/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const { signedTransaction, context } = req.body || {};
   if (!signedTransaction || !context) return res.status(400).json({ error: 'signedTransaction and context are required' });
   const result = await submitPrincipalWithdrawal({ rule, signedTransaction, context });
@@ -461,6 +497,19 @@ router.post('/rules/:id/preview', asyncRoute(async (req, res) => {
 router.get('/receipts', asyncRoute(async (req, res) => {
   const wallet = requireWallet(req, res); if (!wallet) return;
   res.json({ receipts: listReceipts(wallet) });
+}));
+
+/**
+ * Portable Proof JSON (`overflow.preservation-proof.v1`). A pure projection of
+ * an already-verified, already-signed receipt -- nothing is recomputed here.
+ */
+router.get('/rules/:id/receipts/:receiptId/proof', asyncRoute(async (req, res) => {
+  const rule = ownedRule(req, res); if (!rule) return;
+  const receipt = getReceipt(req.params.receiptId);
+  if (!receipt || receipt.ruleId !== rule.id || receipt.wallet !== rule.wallet) {
+    return res.status(404).json({ error: 'receipt not found' });
+  }
+  res.json(buildPreservationProof(receipt));
 }));
 
 router.get('/transactions', asyncRoute(async (req, res) => {

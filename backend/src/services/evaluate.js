@@ -3,7 +3,7 @@
  * Nothing here signs or sends. The result is an intent the execution layer may
  * act on, and every guard is re-run at execution time against fresh data.
  */
-import { evaluateDividendRule, evaluateInterestRule, STATUS } from '../core/ruleEngine.js';
+import { evaluateDividendRule, evaluateInterestRule, buildPolicySummary, STATUS } from '../core/ruleEngine.js';
 import { getOpenSnapshotForRule } from '../db/snapshots.js';
 import { hasConfirmedExecution } from '../db/receipts.js';
 import { getAsset, getAssetDetail } from './assets.js';
@@ -57,6 +57,7 @@ export async function evaluateRule(rule) {
     guards: { ...(result.guards ?? {}), baselineIntact: true },
     ruleId: rule.id,
     evaluatedAt: new Date().toISOString(),
+    policySummary: buildPolicySummary(rule, result),
   };
 }
 
@@ -156,5 +157,6 @@ async function quoteFor(intent) {
     amountRawAtomic: intent.inputRawAtomic,
     slippageBps: intent.maxSlippageBps,
   });
-  return order;
+  // Freshness: a quote is a moment-in-time price, not a standing guarantee.
+  return { ...order, quotedAt: new Date().toISOString() };
 }

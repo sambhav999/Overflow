@@ -9,6 +9,7 @@ import DriftNotice from './DriftNotice.jsx';
 import PreviewPanel from './PreviewPanel.jsx';
 import Receipt from './Receipt.jsx';
 import { IconVault, IconWallet } from './icons.jsx';
+import FirewallSummary from './FirewallSummary.jsx';
 
 export default function RuleCard({ rule, connection, onChanged, onDeleted, totalInvestedAtomic = '0' }) {
   const [busy, setBusy] = useState(false);
@@ -69,6 +70,8 @@ export default function RuleCard({ rule, connection, onChanged, onDeleted, total
         </div>
         <span className={`status-badge status-${status}`}>{status}</span>
       </div>
+
+      <FirewallSummary rule={rule} summary={evaluation.policySummary} />
 
       <div className="rule-meta">
         <Meta k="Minimum execution" v={formatUsd(rule.minExecutionUsdAtomic)} />
