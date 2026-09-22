@@ -1,15 +1,15 @@
 /**
  * The destination catalogue: public stocks (xStocks) and private-market tokens
- * (PreStocks, Tessera), each tagged with a category so earnings can be reported
+ * (PreStocks), each tagged with a category so earnings can be reported
  * as a public/private split.
  *
  * Every mint is resolved HERE, server-side, by (provider, symbol). The browser
  * names a destination; it never supplies a mint.
  */
 import { getAsset, USDC_ASSET } from './assets.js';
-import { fetchPreStocks, fetchTessera } from '../adapters/providers/private.js';
+import { fetchPreStocks } from '../adapters/providers/private.js';
 
-export const PROVIDERS = ['XSTOCKS', 'PRESTOCKS', 'TESSERA', 'USDC'];
+export const PROVIDERS = ['XSTOCKS', 'PRESTOCKS', 'USDC'];
 
 /** The public-stock destinations offered. Small and deliberate. */
 const PUBLIC_DESTINATIONS = ['SPYx', 'QQQx', 'NVDAx'];
@@ -41,11 +41,9 @@ export async function listAllDestinations() {
     else warnings.push(`xStocks ${symbol} unavailable`);
   }
 
-  const [pre, tes] = await Promise.allSettled([fetchPreStocks(), fetchTessera()]);
+  const [pre] = await Promise.allSettled([fetchPreStocks()]);
   if (pre.status === 'fulfilled') out.push(...pre.value);
   else warnings.push(`PreStocks unavailable: ${pre.reason?.message}`);
-  if (tes.status === 'fulfilled') out.push(...tes.value);
-  else warnings.push(`Tessera unavailable: ${tes.reason?.message}`);
 
   return { destinations: out, warnings };
 }
@@ -60,6 +58,6 @@ export async function getDestination(provider, symbol) {
     const a = await getAsset(s);
     return a ? publicShape(a) : null;
   }
-  const list = p === 'PRESTOCKS' ? await fetchPreStocks() : p === 'TESSERA' ? await fetchTessera() : [];
+  const list = p === 'PRESTOCKS' ? await fetchPreStocks() : [];
   return list.find((d) => d.symbol.toUpperCase() === s.toUpperCase()) ?? null;
 }

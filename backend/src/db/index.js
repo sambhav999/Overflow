@@ -158,7 +158,7 @@ function migrate(d) {
       intent_key TEXT NOT NULL UNIQUE,
       destination_symbol TEXT NOT NULL,
       destination_provider TEXT NOT NULL
-        CHECK (destination_provider IN ('XSTOCKS','PRESTOCKS','TESSERA','USDC')),
+        CHECK (destination_provider IN ('XSTOCKS','PRESTOCKS','USDC')),
       destination_category TEXT NOT NULL
         CHECK (destination_category IN ('PUBLIC_STOCK','PRIVATE_MARKET','STABLE')),
       outcome TEXT NOT NULL CHECK (outcome IN ('PASSED','BLOCKED')),

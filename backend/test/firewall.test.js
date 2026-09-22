@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { impliedTokenPriceScaled, decideBand, premiumBpsDisplay, evaluateFirewall } from '../src/core/marketGuard.js';
-import { normalizePreStocks, normalizeTessera } from '../src/adapters/providers/private.js';
+import { normalizePreStocks } from '../src/adapters/providers/private.js';
 import { parseDecimalToScaled, SCALE } from '../src/core/units.js';
 
 const usd = (scaled) => Number(scaled / (SCALE / 100n)) / 100;
@@ -72,13 +72,14 @@ test('the executable quote outranks the provider price', async () => {
   assert.match(e.tokenSource, /Jupiter executable quote/);
 });
 
-test('it fails closed with no token price, instead of every Tessera route silently dying', async () => {
+test('it fails closed with no token price, instead of every no-price provider route silently dying', async () => {
   const rule = { marketGuardMode: 'TOKEN_PREMIUM', maxPremiumBps: 100 };
-  const t = { symbol: 'T-OPENAI', provider: 'TESSERA', markPriceUsd: '812.79', providerTokenPriceUsd: null };
+  // A private-market provider that publishes a mark but no token price.
+  const t = { symbol: 'T-OPENAI', provider: 'PRESTOCKS', markPriceUsd: '812.79', providerTokenPriceUsd: null };
   const noQuote = await evaluateFirewall(rule, t);
   assert.equal(noQuote.decision, 'BLOCK');
   assert.equal(noQuote.breach, 'NO_EVIDENCE');
-  // With a real quote, Tessera is evaluable -- V4.1 blocked it unconditionally.
+  // With a real quote, the route is evaluable -- V4.1 blocked it unconditionally.
   const withQuote = await evaluateFirewall(rule, t, { quote: { inAmount: '10000000', outAmount: '10210198' }, outDecimals: 9 });
   assert.notEqual(withQuote.breach, 'NO_EVIDENCE');
   assert.equal(withQuote.decision, 'BLOCK', 'T-OpenAI is ~2050 bps over its mark');
@@ -105,9 +106,6 @@ test('providers normalise from their REAL field shapes', () => {
   assert.equal(p.mint, 'PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF');
   assert.equal(p.category, 'PRIVATE_MARKET');
   assert.equal(p.name, 'OpenAI');
-  const t = normalizeTessera({ id: 'T-OpenAI', name: 'T-OpenAI', symbol: 'T-OpenAI', mint: 'oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ', markPrice: 812.79 });
-  assert.equal(t.mint, 'oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ');
-  assert.equal(t.providerTokenPriceUsd, null);
   // V4.1's guessed field names would have dropped this:
   assert.equal(normalizePreStocks({ symbol: 'X', mintAddress: 'abc' }), null);
 });

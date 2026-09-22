@@ -153,7 +153,7 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
           // Default private markets to the firewall; they are where premiums run widest.
           setGuardMode(next?.category === 'PRIVATE_MARKET' && next?.markPriceUsd ? 'TOKEN_PREMIUM' : 'NONE');
         }}>
-          {[['PUBLIC_STOCK', 'Public stocks - xStocks'], ['PRIVATE_MARKET', 'Private markets - PreStocks & Tessera'], ['STABLE', 'Stable']].map(([cat, label]) => {
+          {[['PUBLIC_STOCK', 'Public stocks - xStocks'], ['PRIVATE_MARKET', 'Private markets - PreStocks'], ['STABLE', 'Stable']].map(([cat, label]) => {
             const group = destinations.filter((d) => d.category === cat);
             if (!group.length) return null;
             return (

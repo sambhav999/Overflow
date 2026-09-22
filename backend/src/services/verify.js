@@ -29,6 +29,11 @@ export const VERIFICATION = {
   FAILED: 'FAILED',
 };
 
+/** The interest-rule invariant itself: the redeemable position still covers the floor. */
+export function principalPreserved(redeemableAfterAtomic, principalFloorAtomic) {
+  return BigInt(redeemableAfterAtomic) >= BigInt(principalFloorAtomic ?? '0');
+}
+
 /** Did this transaction spend exactly what we authorised, and nothing more? */
 async function exactSpendProof({ signature, wallet, mint, authorisedRaw }) {
   const expected = -BigInt(authorisedRaw); // a spend is a negative delta
@@ -129,7 +134,7 @@ export async function verifyInterestExecution({ signature, wallet, vaultAddress,
 
   const floor = BigInt(principalFloorAtomic ?? '0');
   const redeemableAfter = position?.available ? BigInt(position.redeemableAtomic) : null;
-  const preserved = redeemableAfter !== null && redeemableAfter >= floor;
+  const preserved = redeemableAfter !== null && principalPreserved(redeemableAfter, floor);
 
   const contradicted = (spend.available && !spend.exact) || (redeemableAfter !== null && !preserved);
   const verification = contradicted

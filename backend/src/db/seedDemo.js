@@ -17,6 +17,7 @@ import { createReceipt, updateReceipt } from './receipts.js';
 import { computePolicyHash } from '../core/policyHash.js';
 import { signProof, verifierPublicKey } from '../core/verifierKey.js';
 import { buildProofPayload } from '../services/proof.js';
+import { principalPreserved } from '../services/verify.js';
 
 /** Deterministic, obviously-not-a-real-holder address -- never signs anything. */
 export const DEMO_WALLET = base58Encode(createHash('sha256').update('overflow-judge-demo-wallet').digest());
@@ -59,6 +60,11 @@ export function seedDemoData() {
   const executionKey = `demo-seed-${rule.id}`;
   const harvestedAtomic = '186400000'; // $186.40 harvested above the floor
   const receivedRaw = '9820000'; // 0.0982 OPENAI (8dp)
+  const redeemableAfterAtomic = '10000000000';
+
+  // The same invariant a real settlement is checked against: does the
+  // redeemable position still cover the floor. Derived, not asserted.
+  const preserved = principalPreserved(redeemableAfterAtomic, rule.principalFloorAtomic);
 
   const inputs = {
     principalFloorAtomic: rule.principalFloorAtomic,
@@ -72,7 +78,7 @@ export function seedDemoData() {
     jupiterStatus: 'Success',
     outputAmountResult: receivedRaw,
     principalFloorAtomic: rule.principalFloorAtomic,
-    redeemableAfterAtomic: '10000000000',
+    redeemableAfterAtomic,
     routedRaw: harvestedAtomic,
     destinationReceivedRaw: receivedRaw,
     proofs: {
@@ -81,7 +87,7 @@ export function seedDemoData() {
       observedSourceDelta: `-${harvestedAtomic}`,
       authorisedSourceDelta: `-${harvestedAtomic}`,
       destinationIncreased: true,
-      floorStillCovered: true,
+      floorStillCovered: preserved,
     },
   };
 
@@ -99,7 +105,7 @@ export function seedDemoData() {
     quote: null,
     verification: 'VERIFIED_ON_CHAIN',
     verificationNote: 'Settlement re-read from chain: principal floor intact, destination token increased by the settled amount.',
-    preserved: true,
+    preserved,
     proofs: outputs.proofs,
     destinationCategory: rule.destinationCategory,
     destinationSymbol: rule.destinationSymbol,

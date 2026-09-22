@@ -1,6 +1,16 @@
-# Overflow
+<p align="center">
+  <img src="frontend/public/brand/overflow-logo-full.png" alt="Overflow" width="420">
+</p>
 
-**Keep the source. Program the earnings.**
+<p align="center"><b>Keep the source. Program the earnings.</b></p>
+
+<p align="center">
+  Live app: <a href="https://noisy-sky-fa9c.rj838486.workers.dev">noisy-sky-fa9c.rj838486.workers.dev</a>
+  · API: <a href="https://solana-poc.onrender.com">solana-poc.onrender.com</a>
+  · Program (devnet): <code>nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp</code>
+</p>
+
+---
 
 ## Judge quick-start
 
@@ -11,13 +21,14 @@ every fund-moving route so nothing can actually be signed or broadcast.
 ```bash
 cd backend
 npm ci
-npm test                      # 30 tests, no network required
+npm test                      # 82 tests, no network required
 npm run simulate:judge        # http://localhost:8787, DEMO_MODE=true
 ```
 
 Then, separately, `cd frontend && npm install && npm run dev` (http://localhost:5173) and point
 it at the demo backend as usual — the on-chain registry step in Setup below is optional and can
-be skipped entirely for a judge run.
+be skipped entirely for a judge run. Or skip local setup entirely and use the live deployment
+linked above.
 
 Overflow is a programmable earnings layer for onchain assets. It preserves a source
 position and routes only the value that position **newly generates** into a destination
@@ -187,7 +198,7 @@ guarantee.
 │                         └─ replay     ─┤                                             │
 │                                        ▼                                             │
 │   core/   units · dividend · principal · guards · idempotency · ruleEngine           │
-│           └── BigInt only · no SDK imports · no signing · 30 tests                   │
+│           └── BigInt only · no SDK imports · no signing · 40 tests                   │
 │                                        │                                             │
 │   adapters/ ─┬─ xstocks/  assets · multiplier · corporateActions                     │
 │              ├─ jupiter/  order → sign → execute   (API key stays here)              │
@@ -318,7 +329,7 @@ Requires **Node 22+** (uses the built-in `node:sqlite`, so there is no native bu
 cd backend
 cp .env.example .env          # set SOLANA_RPC_URL at minimum
 npm install
-npm test                      # 30 tests, no network required
+npm test                      # 82 tests, no network required
 npm run dev                   # http://localhost:8787
 
 # frontend
@@ -364,7 +375,7 @@ whether or not the Kamino dependency resolves.
 cd backend && npm test
 ```
 
-30 tests, no network required. Highlights:
+82 tests across 10 files, no network required. Highlights:
 
 - the preservation inequality holds across 400 different raw balances
 - rounding always favours the user; a sub-unit dividend floors to zero and refuses to swap
@@ -380,6 +391,10 @@ cd backend && npm test
 - share conversion rounds down at the **real** vault exchange rate across 500 sizes
 - multiple deposits accumulate; over-withdrawal cannot drive the floor negative
 - a failed withdrawal leaves the floor untouched
+- wallet sign-in messages are single-use and expire; tampering changes the signed hash
+- the on-chain PDA derivation matches an independent Rust fixture byte-for-byte
+- `create_rule` / `post_receipt` instruction layouts and account orderings are pinned by test
+- explorer signature links are tagged and clustered correctly without live chain RPC
 
 ---
 
@@ -435,6 +450,6 @@ cd backend && npm test
 - [ ] `SOLANA_RPC_URL` points at a dedicated provider
 - [ ] `JUPITER_API_KEY` set
 - [ ] `KAMINO_USDC_VAULT` verified live
-- [ ] Deployed URL: _______
+- [x] Deployed URL: frontend — https://noisy-sky-fa9c.rj838486.workers.dev · API — https://solana-poc.onrender.com
 - [ ] Demo video: _______
 - [ ] Confirmed transaction signatures: _______

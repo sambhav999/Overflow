@@ -1,18 +1,16 @@
 /**
- * Private-market token providers: PreStocks and Tessera.
+ * Private-market token provider: PreStocks.
  *
- * Field names are pinned to what each API ACTUALLY returns (verified live,
+ * Field names are pinned to what the API ACTUALLY returns (verified live,
  * September 2026) -- not guessed. V4.1's normaliser guessed, looked for `mint`
  * or `mintAddress`, and dropped every PreStocks asset because PreStocks calls it
  * `contract_address`. Its test passed because the fixture used the same guess.
  *
  *   PreStocks  [{ name, symbol, contract_address, markPrice, tokenPrice, ... }]
- *   Tessera    [{ id, name, symbol, code, sector, mint, markPrice, ... }]  -- NO token price
  *
  * Every price here is a decimal STRING. Nothing is coerced through Number.
  */
 const PRESTOCKS_URL = process.env.PRESTOCKS_API_URL || 'https://prestocks.com/api/prestocks';
-const TESSERA_URL = process.env.TESSERA_API_URL || 'https://rest-api.tessera.pe/v1/public/token-details';
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map();
@@ -64,26 +62,6 @@ export function normalizePreStocks(row, rawText = '') {
   };
 }
 
-export function normalizeTessera(row, rawText = '') {
-  const mint = String(row.mint ?? '').trim();
-  const symbol = String(row.symbol ?? '').trim().toUpperCase();
-  if (!mint || !symbol) return null;
-  return {
-    provider: 'TESSERA',
-    category: 'PRIVATE_MARKET',
-    symbol,
-    name: String(row.name ?? symbol).replace(/^T-/, ''),
-    mint,
-    logo: null,
-    markPriceUsd: positiveDecimal(literal(rawText, mint, 'markPrice') ?? row.markPrice),
-    // Tessera publishes no token price. The firewall derives one from the actual
-    // Jupiter quote instead of failing closed on every Tessera route.
-    providerTokenPriceUsd: null,
-    markValuationUsd: row.markValuation ?? null,
-    sector: row.sector ?? null,
-  };
-}
-
 async function cached(key, loader) {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
@@ -122,13 +100,5 @@ export async function fetchPreStocks() {
         .filter(Boolean)
         .map((d) => ({ ...d, simulated: true }));
     }
-  });
-}
-
-export async function fetchTessera() {
-  return cached('tessera', async () => {
-    const { json, text } = await getJsonText(TESSERA_URL);
-    const rows = Array.isArray(json) ? json : (json?.data ?? json?.items ?? []);
-    return rows.map((r) => normalizeTessera(r, text)).filter(Boolean);
   });
 }

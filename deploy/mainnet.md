@@ -12,9 +12,18 @@ Use this file after the program is on mainnet. Do not switch these values until 
 
 Mainnet deploy uses real SOL on the CLI wallet. No airdrop.
 
+> **Before mainnet:** `programs/overflow-registry/keys/overflow_registry-keypair.json` is
+> committed to this repo and is therefore public. Reusing it on mainnet means anyone who has
+> seen the repo could deploy their own program to `nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp`
+> first and squat the address. The upgrade authority (`~/.config/solana/id.json`) is a
+> separate key and stays private either way, so this only matters for *first* deploy to a new
+> cluster. If you have not already deployed to mainnet, generate a fresh program keypair
+> instead (`solana-keygen new -o programs/overflow-registry/keys/overflow_registry-mainnet-keypair.json`)
+> and use that in step 5 below, rather than reusing the public devnet one.
+
 ## Commands to run (in order)
 
-Finish **devnet first**. Use the same Solana CLI install and the same `~/.config/solana/id.json` from `deploy/devnet.md`. Do not create a new program keypair.
+Finish **devnet first**. Use the same Solana CLI install and the same `~/.config/solana/id.json` from `deploy/devnet.md`. Do not create a new program keypair — unless you're following the mainnet warning above, in which case use the fresh one you just generated in place of the repo's keypair everywhere below.
 
 Run these in Terminal from `/Users/rishabhjaiswal/Desktop/solana-poc`.
 
