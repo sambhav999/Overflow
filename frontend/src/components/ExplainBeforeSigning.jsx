@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatRaw, formatUsd } from '../lib/format.js';
 import PremiumGauge from './PremiumGauge.jsx';
+import FirewallEvidence from './FirewallEvidence.jsx';
 
 /**
  * Explain Before Signing.
@@ -38,17 +39,9 @@ export default function ExplainBeforeSigning({ rule, summary, firewall, quote })
 
       {firewall && decision !== 'NOT_REQUIRED' && (
         <div style={{ marginTop: 12 }}>
-          {firewall.tokenPriceUsd && (
-            <div className="rule-meta" style={{ marginTop: 0, paddingTop: 0, borderTop: 'none' }}>
-              <div><div className="meta-k">Mark price</div><div className="meta-v money">${firewall.tokenPriceUsd}</div></div>
-              {firewall.referencePriceUsd && (
-                <div><div className="meta-k">Reference price</div><div className="meta-v money">${firewall.referencePriceUsd}</div></div>
-              )}
-              <div><div className="meta-k">Premium</div><div className="meta-v money">{firewall.premiumBps > 0 ? '+' : ''}{firewall.premiumBps} bps</div></div>
-            </div>
-          )}
           <PremiumGauge premiumBps={firewall.premiumBps} maxPremiumBps={firewall.maxPremiumBps}
                         minPremiumBps={firewall.minPremiumBps} decision={decision} />
+          <FirewallEvidence evidence={firewall} symbol={rule.destinationSymbol} />
         </div>
       )}
 

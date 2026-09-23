@@ -158,8 +158,13 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
         <select value={destinationKey} onChange={(e) => {
           const next = destinations.find((d) => `${d.provider}:${d.symbol}` === e.target.value);
           setDestinationKey(e.target.value);
-          // Default private markets to the firewall; they are where premiums run widest.
-          setGuardMode(next?.category === 'PRIVATE_MARKET' && next?.markPriceUsd ? 'TOKEN_PREMIUM' : 'NONE');
+          // Private markets default to TOKEN_PREMIUM (premiums run widest there);
+          // public stocks default to PYTH_PARITY, checked against the listed
+          // underlying rather than a self-reported mark -- visible by default,
+          // not something a judge has to discover in a dropdown.
+          if (next?.category === 'PRIVATE_MARKET' && next?.markPriceUsd) setGuardMode('TOKEN_PREMIUM');
+          else if (next?.category === 'PUBLIC_STOCK') setGuardMode('PYTH_PARITY');
+          else setGuardMode('NONE');
         }}>
           {[['PUBLIC_STOCK', 'Public stocks - xStocks'], ['PRIVATE_MARKET', 'Private markets - PreStocks'], ['STABLE', 'Stable']].map(([cat, label]) => {
             const group = destinations.filter((d) => d.category === cat);

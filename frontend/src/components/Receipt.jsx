@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { formatRaw, formatUsd, formatDateTime, explorerUrl, shortAddress } from '../lib/format.js';
 import { api } from '../lib/api.js';
+import { describeVerification, VERIFYING_ONCHAIN_NOTICE } from '../lib/firewallCopy.js';
 import Verdict from './Verdict.jsx';
 
 /**
@@ -8,12 +9,17 @@ import Verdict from './Verdict.jsx';
  * outputs, and -- explicitly, as numbers rather than just a checkmark --
  * what was authorised to move, what was actually observed to move, and that
  * protected capital was never touched.
+ *
+ * "Confirmed" and "verified" are different claims (see execute.js: delivery
+ * succeeding is a separate axis from preservation being proven). A confirmed
+ * transaction never gets a checkmark it hasn't earned -- see describeVerification.
  */
 export default function Receipt({ receipt }) {
   if (!receipt) return null;
   const { inputs = {}, outputs = {}, proofs = {}, kind, mode, status } = receipt;
   const isDividend = kind === 'DIVIDEND';
   const failed = status !== 'CONFIRMED';
+  const verif = describeVerification(receipt);
 
   return (
     <div className="receipt">
@@ -41,8 +47,13 @@ export default function Receipt({ receipt }) {
           <Row k="Routed to" v={inputs.destinationSymbol ?? '-'} className="equity" />
           <Row k="Received" v={outputs.outputAmountResult ? formatRaw(outputs.outputAmountResult, inputs.destinationDecimals ?? 8, 8) : '-'} className="equity" />
           <Row k="Remaining source exposure"
-               v={`${outputs.exposureAfter ?? inputs.remainingExposureDisplay ?? '-'} ${inputs.symbol ?? ''} ${receipt.preserved === true ? '✓' : ''}`}
-               className={receipt.preserved === true ? 'preserved-yes' : ''} />
+               v={`${outputs.exposureAfter ?? inputs.remainingExposureDisplay ?? '-'} ${inputs.symbol ?? ''} ${verif.tone === 'preserved-yes' ? '✓' : ''}`}
+               className={verif.tone === 'preserved-yes' ? 'preserved-yes' : (verif.tone === 'bad' ? 'bad' : '')} />
+          {verif.tone !== 'preserved-yes' && status === 'CONFIRMED' && (
+            <div className="hint" style={{ marginTop: 2 }}>
+              {verif.tone === 'bad' ? 'Preservation check failed' : VERIFYING_ONCHAIN_NOTICE}
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -53,7 +64,8 @@ export default function Receipt({ receipt }) {
           <hr />
           <Row k="Destination" v={inputs.destinationSymbol ?? '-'} className="equity" />
           <Row k="Received" v={outputs.outputAmountResult ? formatRaw(outputs.outputAmountResult, inputs.destinationDecimals ?? 8, 8) : '-'} className="equity" />
-          <Row k="Principal used to buy" v={`${formatUsd('0')} ${!failed ? '✓' : ''}`} className={!failed ? 'preserved-yes' : ''} />
+          <Row k="Principal used to buy" v={verif.label} className={verif.tone} />
+          {verif.tone === 'warn' && <div className="hint" style={{ marginTop: 2 }}>{VERIFYING_ONCHAIN_NOTICE}</div>}
         </>
       )}
 
@@ -68,7 +80,7 @@ export default function Receipt({ receipt }) {
       {receipt.signature ? (
         <Row k="Solana tx" v={<a href={explorerUrl(receipt.signature)} target="_blank" rel="noreferrer">{shortAddress(receipt.signature, 8)}</a>} />
       ) : (
-        <Row k="Solana tx" v="- none -" />
+        <Row k="Solana tx" v="— no chain tx (illustrative) —" />
       )}
       {receipt.onchainSignature && (
         <Row k="Registry tx" v={<a href={explorerUrl(receipt.onchainSignature)} target="_blank" rel="noreferrer">{shortAddress(receipt.onchainSignature, 8)}</a>} />

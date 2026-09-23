@@ -1,5 +1,7 @@
 import { formatUsd, formatDateTime } from '../lib/format.js';
 import PremiumGauge from './PremiumGauge.jsx';
+import FirewallEvidence from './FirewallEvidence.jsx';
+import { describeFirewall } from '../lib/firewallCopy.js';
 import { Mark } from './icons.jsx';
 
 /** Every Capital Firewall decision, with the evidence it was made on. */
@@ -28,7 +30,7 @@ export default function FirewallDecisions({ decisions }) {
                   {d.destinationSymbol}{' '}
                   <span className={`chip ${d.destinationCategory === 'PRIVATE_MARKET' ? 'private' : 'public'}`}>{d.destinationProvider}</span>
                 </div>
-                <div className="decision-reason">{e.reason}</div>
+                <div className="decision-reason">{describeFirewall({ ...e, decision: d.outcome })}</div>
               </div>
               <div className="decision-amt">
                 {formatUsd(d.earningsUsdAtomic)}
@@ -36,11 +38,10 @@ export default function FirewallDecisions({ decisions }) {
               </div>
             </div>
             <PremiumGauge premiumBps={e.premiumBps} maxPremiumBps={e.maxPremiumBps} minPremiumBps={e.minPremiumBps} decision={d.outcome} />
-            <div className="hint" style={{ marginTop: 6 }}>
-              {e.tokenPriceUsd && `paying $${e.tokenPriceUsd} (${e.tokenSource})`}
-              {e.referencePriceUsd && ` · fair value $${e.referencePriceUsd} (${e.referenceSource})`}
-              {e.countsAsRetained === false && d.outcome === 'BLOCKED' && ' · not counted as retained (data unavailable, not a price judgement)'}
-            </div>
+            {e.countsAsRetained === false && d.outcome === 'BLOCKED' && (
+              <div className="hint" style={{ marginTop: 6 }}>Not counted as retained — data was unavailable, not a price judgement.</div>
+            )}
+            <FirewallEvidence evidence={{ ...e, decision: d.outcome }} symbol={d.destinationSymbol} />
           </div>
         );
       })}

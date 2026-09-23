@@ -65,7 +65,7 @@ export default function RuleCard({ rule, connection, onChanged, onDeleted, total
           <div className="eyebrow" style={{ marginTop: 4 }}>
             {isDividend
               ? 'Keeps pre-event equity exposure. Routes only dividend-created exposure.'
-              : 'Keeps the principal floor. Routes only value above it.'}
+              : 'Only value above the stored principal floor can move. The floor does not drift.'}
           </div>
         </div>
         <span className={`status-badge status-${status}`}>{status}</span>
@@ -88,6 +88,17 @@ export default function RuleCard({ rule, connection, onChanged, onDeleted, total
           <Meta k="Event activation" v={`${formatDateTime(rule.openSnapshot.activationDateTime)} (${formatRelative(rule.openSnapshot.activationDateTime)})`} />
         )}
       </div>
+
+      {rule.destinationProvider === 'PRESTOCKS' && (
+        <div className="notice" style={{ marginTop: 10 }}>
+          <b>PreStocks · {rule.destinationSymbol}</b> — build a pre-IPO position from {isDividend ? 'dividends' : 'dollar yield'} while
+          keeping the source capital intact.
+          <div className="hint" style={{ marginTop: 6, marginBottom: 0 }}>
+            Server-resolved mint: <span style={{ fontFamily: 'var(--mono)' }}>{rule.destinationMint}</span> — the browser names the
+            destination; it never supplies the mint.
+          </div>
+        </div>
+      )}
 
       {!isDividend && rule.principalFloorAtomic && (
         <PrincipalFlow rule={rule} evaluation={evaluation} totalInvestedAtomic={totalInvestedAtomic} />

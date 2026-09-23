@@ -3,8 +3,10 @@ import { api } from '../lib/api.js';
 import { signTransactionBase64 } from '../lib/wallet.js';
 import { settleReceiptOnchain } from '../lib/onchain.js';
 import { formatRaw, formatUsd, pctFromDecimalString, formatActionError } from '../lib/format.js';
+import { describeFirewall } from '../lib/firewallCopy.js';
 import ExposureBar from './ExposureBar.jsx';
 import PremiumGauge from './PremiumGauge.jsx';
+import FirewallEvidence from './FirewallEvidence.jsx';
 import ExplainBeforeSigning from './ExplainBeforeSigning.jsx';
 
 /**
@@ -166,14 +168,10 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
 
       {blocked && (
         <div className="blocked-hero">
-          <div className="blocked-title">EXECUTION BLOCKED - CAPITAL FIREWALL</div>
-          <div style={{ fontSize: 13, marginTop: 6 }}>{blocked.reason}</div>
+          <div className="blocked-title">{describeFirewall(blocked)}</div>
           <PremiumGauge premiumBps={blocked.premiumBps} maxPremiumBps={blocked.maxPremiumBps}
                         minPremiumBps={blocked.minPremiumBps} decision="BLOCK" />
-          <div className="hint" style={{ marginTop: 8 }}>
-            {blocked.tokenPriceUsd && <>Would have paid ${blocked.tokenPriceUsd} ({blocked.tokenSource}). </>}
-            {blocked.referencePriceUsd && <>Fair value ${blocked.referencePriceUsd} ({blocked.referenceSource}). </>}
-          </div>
+          <FirewallEvidence evidence={{ ...blocked, decision: 'BLOCK' }} symbol={rule.destinationSymbol} />
           <div className="notice ok" style={{ marginTop: 10 }}>
             Your earnings are untouched. {blocked.detail?.split('. ').slice(-1)[0]} The decision is stored with its
             evidence and counts toward Earnings Retained.
