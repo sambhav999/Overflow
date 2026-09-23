@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { api } from '../lib/api.js';
-import { signTransactionBase64 } from '../lib/wallet.js';
 import { settleReceiptOnchain } from '../lib/onchain.js';
 import { formatRaw, formatUsd, pctFromDecimalString, formatActionError } from '../lib/format.js';
 import { describeFirewall } from '../lib/firewallCopy.js';
@@ -49,11 +48,7 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
     if (!prepared?.transaction) return;
     setPhase('signing'); setError(null);
     try {
-      const signed = await signTransactionBase64({
-        wallet: connection.wallet,
-        account: connection.account,
-        transactionBase64: prepared.transaction,
-      });
+      const signed = await connection.signTransactionBase64(prepared.transaction);
       setPhase('submitting');
 
       if (prepared.stage === 'WITHDRAW') {
@@ -201,7 +196,7 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
       )}
       {connection?.demo && (
         <div className="hint" style={{ marginTop: 10 }}>
-          Judge Demo Mode shows what already happened. Connect a real Phantom wallet to execute a new rule.
+          Judge Demo Mode shows what already happened. Connect a real wallet to execute a new rule.
         </div>
       )}
 

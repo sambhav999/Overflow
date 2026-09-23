@@ -114,7 +114,7 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
       {preset && (
         <div className="notice" style={{ marginBottom: 16 }}>
           Prefilled with the hero flow — Kamino USDC → Capital Firewall → PreStocks OpenAI.
-          Review it below, then sign in Phantom to register it on Solana for real.
+          Review it below, then sign in with your wallet to register it on Solana for real.
         </div>
       )}
 

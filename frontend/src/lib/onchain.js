@@ -1,5 +1,4 @@
 import { api } from './api.js';
-import { signTransactionBase64 } from './wallet.js';
 
 /**
  * Sign and submit a registry transaction the API already prepared.
@@ -8,14 +7,10 @@ import { signTransactionBase64 } from './wallet.js';
 export async function settleRegistryTx({ connection, prepared, submit }) {
   if (!prepared?.available || !prepared.transaction) return null;
   if (prepared.simulation && prepared.simulation.ok === false) return null;
-  if (!connection?.wallet || !connection?.account) {
-    throw new Error('Connect Phantom before posting the on-chain registry transaction.');
+  if (!connection?.signTransactionBase64) {
+    throw new Error('Connect a wallet before posting the on-chain registry transaction.');
   }
-  const signedTransaction = await signTransactionBase64({
-    wallet: connection.wallet,
-    account: connection.account,
-    transactionBase64: prepared.transaction,
-  });
+  const signedTransaction = await connection.signTransactionBase64(prepared.transaction);
   return submit({
     signedTransaction,
     rulePda: prepared.rulePda,

@@ -1,39 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  listSolanaWallets,
-  onWalletsChanged,
-  connectPhantom,
-  restorePhantomIfTrusted,
-  disconnectWallet,
-  signMessageBase64,
-  supportsSignMessage,
-  explainPhantomConnectError,
-  isInternalConnectError,
-  PHANTOM_CONNECT_EVENT,
-} from '../lib/wallet.js';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { api, setSession, restoreSession, clearSession } from '../lib/api.js';
+import { bytesToBase64 } from '../lib/bytes.js';
 import { tagError, trace, traceError } from '../lib/trace.js';
 import { shortAddress } from '../lib/format.js';
 import { IconWallet, IconPower } from './icons.jsx';
 
 /**
- * Connect and sign in as one step. A cancelled signature disconnects so the
- * header never shows Sign in and Disconnect at the same time. Phantom is the
- * only wallet this bar offers; there is no picker.
+ * Connect (via wallet-adapter, any Wallet Standard wallet) and sign in as one
+ * step. A cancelled or failed signature disconnects, so the header never
+ * shows Sign in and Disconnect at the same time.
  */
 export default function WalletBar({ connection, signedIn, onConnect, onSignedIn, onDisconnect }) {
-  const [, setWallets] = useState(() => listSolanaWallets());
-  const [busy, setBusy] = useState(null);
+  const { publicKey, connected, wallet, disconnect, signMessage } = useWallet();
+  const { setVisible } = useWalletModal();
+  const address = publicKey?.toBase58() || null;
+
+  const [signing, setSigning] = useState(false);
   const [modal, setModal] = useState(null);
-  const connectRef = useRef(null);
-  const restoreRef = useRef(false);
-  const signedInRef = useRef(signedIn);
-  const onConnectRef = useRef(onConnect);
-  const onSignedInRef = useRef(onSignedIn);
-  signedInRef.current = signedIn;
-  onConnectRef.current = onConnect;
-  onSignedInRef.current = onSignedIn;
+  const provingRef = useRef(false);
 
   const [sol, setSol] = useState(null);
   const [solError, setSolError] = useState(null);
@@ -63,189 +50,109 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
     return () => { cancelled = true; clearInterval(id); };
   }, [connection?.address, signedIn]);
 
-  useEffect(() => onWalletsChanged(() => setWallets(listSolanaWallets())), []);
-
-  useEffect(() => {
-    const refresh = () => setWallets(listSolanaWallets());
-    const id = setInterval(refresh, 400);
-    const stop = setTimeout(() => clearInterval(id), 5000);
-    window.addEventListener('focus', refresh);
-    return () => {
-      clearInterval(id);
-      clearTimeout(stop);
-      window.removeEventListener('focus', refresh);
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function silentRestore() {
-      if (restoreRef.current || cancelled || signedInRef.current) return;
-      const conn = await restorePhantomIfTrusted();
-      if (cancelled || !conn) return;
-      const existing = restoreSession(conn.address);
-      if (!existing) return;
-      restoreRef.current = true;
-      trace('connect:silent-restore', { address: conn.address, expiresAt: existing.expiresAt });
-      onConnectRef.current(conn);
-      onSignedInRef.current(existing);
-    }
-    silentRestore();
-    const id = setInterval(silentRestore, 500);
-    const stop = setTimeout(() => clearInterval(id), 6000);
-    window.addEventListener('focus', silentRestore);
-    window.addEventListener('phantom#initialized', silentRestore);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-      clearTimeout(stop);
-      window.removeEventListener('focus', silentRestore);
-      window.removeEventListener('phantom#initialized', silentRestore);
-    };
-  }, []);
-
-  async function prove(conn) {
-    trace('signin:prove:start', { address: conn.address });
+  async function prove(addr) {
+    trace('signin:prove:start', { address: addr });
     let nonceRes;
     try {
-      nonceRes = await api.authNonce(conn.address);
+      nonceRes = await api.authNonce(addr);
       trace('signin:nonce:ok', { nonce: nonceRes?.nonce, messageChars: nonceRes?.message?.length });
     } catch (err) {
       throw tagError(err, { stage: 'api-nonce', source: 'api' });
     }
     let signature;
     try {
-      signature = await signMessageBase64({ wallet: conn.wallet, account: conn.account, message: nonceRes.message });
+      const sigBytes = await signMessage(new TextEncoder().encode(nonceRes.message));
+      signature = bytesToBase64(sigBytes);
       trace('signin:signature:ok', { signatureChars: signature?.length });
     } catch (err) {
-      throw tagError(err, { stage: 'wallet-sign', source: 'phantom' });
+      throw tagError(err, { stage: 'wallet-sign', source: wallet?.adapter?.name?.toLowerCase() || 'wallet' });
     }
     try {
-      const session = await api.authVerify(conn.address, nonceRes.nonce, signature);
+      const session = await api.authVerify(addr, nonceRes.nonce, signature);
       trace('signin:verify:ok', { wallet: session?.wallet, expiresAt: session?.expiresAt });
       setSession(session);
-      restoreRef.current = true;
-      onConnect(conn);
+      onConnect({ address: addr, walletName: wallet?.adapter?.name || null });
       onSignedIn(session);
     } catch (err) {
       throw tagError(err, { stage: 'api-verify', source: 'api' });
     }
   }
 
-  async function handleConnect() {
-    trace('connect:click');
-    const pending = connectPhantom();
-    setBusy('connect');
-    setModal(null);
-    let wallet = null;
-    try {
-      const conn = await pending;
-      wallet = conn.wallet;
-      trace('connect:wallet-ok', { address: conn.address, walletName: wallet?.name });
-      const existing = restoreSession(conn.address);
+  // Once wallet-adapter has connected a wallet, restore an existing session
+  // or run sign-in-with-Solana. This is the one place a connected wallet
+  // becomes an authenticated `connection` the rest of the app can trust.
+  useEffect(() => {
+    if (!connected || !address || signedIn || provingRef.current) return;
+    provingRef.current = true;
+    (async () => {
+      const existing = restoreSession(address);
       if (existing) {
         trace('connect:restored-session', { wallet: existing.wallet, expiresAt: existing.expiresAt });
-        restoreRef.current = true;
-        onConnect(conn);
+        onConnect({ address, walletName: wallet?.adapter?.name || null });
         onSignedIn(existing);
         return;
       }
-      if (!supportsSignMessage(wallet)) {
-        await disconnectWallet(wallet);
+      if (!signMessage) {
         setModal({
           missing: true,
-          title: 'Phantom cannot sign in',
-          message: 'This Phantom build cannot sign messages, so Overflow cannot verify the wallet.',
+          title: 'This wallet cannot sign in',
+          message: `${wallet?.adapter?.name || 'This wallet'} cannot sign messages, so Overflow cannot verify it.`,
         });
+        await disconnect().catch(() => {});
         return;
       }
-      setBusy('sign');
-      await prove(conn);
-    } catch (err) {
-      const dump = traceError('connect:fail', err);
-      const phantomCrash = isInternalConnectError(err);
-      if (!phantomCrash) {
-        try { if (wallet) await disconnectWallet(wallet); } catch (disconnectErr) {
-          traceError('connect:disconnect-after-fail', disconnectErr);
+      setSigning(true);
+      try {
+        await prove(address);
+      } catch (err) {
+        const dump = traceError('connect:fail', err);
+        const message = err?.message || dump.message || String(err);
+        const cancelled = /reject|denied|cancel|4001/i.test(message);
+        if (!cancelled) {
+          setModal({
+            title: 'Could not sign in',
+            message: 'Overflow could not verify this wallet. Try again in a moment.',
+            steps: ['Keep your wallet unlocked on a Solana account.', 'Tap Try again and approve the sign-in message.'],
+          });
         }
-      }
-      const message = err?.message || dump.message || String(err);
-      const cancelled = /reject|denied|cancel|4001/i.test(message);
-      if (cancelled) {
-        trace('connect:cancelled');
+        await disconnect().catch(() => {});
         onDisconnect();
-        return;
+      } finally {
+        setSigning(false);
       }
-      const missing = err?.code === 'PHANTOM_MISSING'
-        || message === 'PHANTOM_MISSING'
-        || /not available|no provider|not found|not installed/i.test(message);
-      const explained = explainPhantomConnectError(err);
-      setModal(missing
-        ? {
-          missing: true,
-          title: 'Phantom is not in this browser',
-          message: 'Install Phantom, or continue in the Phantom app.',
-        }
-        : {
-          title: explained?.title || 'Could not connect',
-          message: explained?.message || 'Phantom did not finish connecting. Try again.',
-          hint: explained?.hint,
-          steps: explained?.steps,
-        });
-      onDisconnect();
-    } finally {
-      setBusy(null);
-    }
+    })().finally(() => { provingRef.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, address, signedIn]);
+
+  async function handleConnectClick() {
+    trace('connect:click');
+    setModal(null);
+    setVisible(true);
   }
 
-  connectRef.current = handleConnect;
-
-  useEffect(() => {
-    function onRequest() {
-      connectRef.current?.();
-    }
-    window.addEventListener(PHANTOM_CONNECT_EVENT, onRequest);
-    return () => window.removeEventListener(PHANTOM_CONNECT_EVENT, onRequest);
-  }, []);
-
   async function handleDisconnect() {
-    restoreRef.current = false;
-    if (connection?.wallet) await disconnectWallet(connection.wallet);
     clearSession(connection?.address);
+    try { await disconnect(); } catch { /* already gone */ }
     onDisconnect();
   }
 
   const walletModal = modal && createPortal(
-    <div className="story-modal" role="dialog" aria-modal="true" aria-labelledby="phantom-modal-title">
+    <div className="story-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-modal-title">
       <button type="button" className="story-modal-backdrop" aria-label="Close" onClick={() => setModal(null)} />
       <div className="wallet-modal-card">
-        <h2 id="phantom-modal-title">{modal.title || (modal.missing ? 'Phantom is not in this browser' : 'Could not connect')}</h2>
+        <h2 id="wallet-modal-title">{modal.title}</h2>
         <p className="wallet-modal-copy">{modal.message}</p>
         {modal.steps?.length ? (
           <ol className="wallet-modal-steps">
             {modal.steps.map((step) => <li key={step}>{step}</li>)}
           </ol>
         ) : null}
-        {modal.hint && <p className="wallet-modal-hint">{modal.hint}</p>}
         <div className="wallet-modal-actions">
-          {modal.missing && (
-            <a className="btn primary" href="https://phantom.app/download" target="_blank" rel="noreferrer">
-              Install Phantom
-            </a>
-          )}
           {!modal.missing && (
-            <button type="button" className="btn primary" onClick={() => { setModal(null); connectRef.current?.(); }}>
+            <button type="button" className="btn primary" onClick={() => { setModal(null); setVisible(true); }}>
               Try again
             </button>
           )}
-          <a
-            className="btn ghost"
-            href={`https://phantom.app/ul/browse/${encodeURIComponent(window.location.href)}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open in Phantom
-          </a>
           <button type="button" className="btn ghost" onClick={() => setModal(null)}>Close</button>
         </div>
       </div>
@@ -260,8 +167,8 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
           <span className="avatar"><IconWallet width={13} height={13} color="#fff" /></span>
           <span className="addr">Judge Demo</span>
         </div>
-        <button className="btn ghost small wallet-connect-real" onClick={handleConnect} disabled={Boolean(busy)}>
-          {busy ? <span className="spinner" /> : 'Connect real wallet'}
+        <button className="btn ghost small wallet-connect-real" onClick={handleConnectClick}>
+          Connect real wallet
         </button>
         {walletModal}
       </div>
@@ -284,7 +191,7 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
         </div>
         {lowSol && (
           <div className="wallet-sol-warn" role="status">
-            Not enough SOL for fees. Need about 0.003 SOL in this Phantom wallet.
+            Not enough SOL for fees. Need about 0.003 SOL in this wallet.
           </div>
         )}
         {walletModal}
@@ -294,9 +201,9 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
 
   return (
     <div className="mast-right">
-      <button className="btn primary" onClick={handleConnect} disabled={Boolean(busy)}>
-        {busy ? <span className="spinner" /> : <IconWallet width={14} height={14} />}
-        {busy === 'connect' ? 'Connecting…' : busy === 'sign' ? 'Check your wallet…' : 'Connect Phantom'}
+      <button className="btn primary" onClick={handleConnectClick} disabled={signing}>
+        {signing ? <span className="spinner" /> : <IconWallet width={14} height={14} />}
+        {signing ? 'Check your wallet…' : 'Connect wallet'}
       </button>
       {walletModal}
     </div>

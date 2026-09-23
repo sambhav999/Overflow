@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { VersionedTransaction } from '@solana/web3.js';
 import { api, onSessionLost, setSession, currentSession } from './lib/api.js';
-import { requestPhantomConnect } from './lib/wallet.js';
+import { base64ToBytes, bytesToBase64 } from './lib/bytes.js';
 import WalletBar from './components/WalletBar.jsx';
 import RuleCard from './components/RuleCard.jsx';
 import CreateRule from './components/CreateRule.jsx';
@@ -35,19 +38,9 @@ const HERO_RULE_PRESET = {
 const HERO_STATS = {
   protectedCapitalUsd: '10,000.00',
   earningsAvailableUsd: '186.40',
-  destination: 'OPENAI',
+  destination: 'OpenAI stock',
   firewallStatus: 'PASS',
 };
-
-// The six real stages the hero flow already runs through, end to end.
-const HERO_FLOW_STAGES = [
-  { label: 'Kamino USDC', sub: 'earnings accrue' },
-  { label: 'Capital Firewall', sub: 'price-policy gate' },
-  { label: 'OPENAI PreStock', sub: 'the destination' },
-  { label: 'Jupiter', sub: 'executes the swap' },
-  { label: 'Verification', sub: 'settlement re-read from chain' },
-  { label: 'Preservation Proof', sub: 'signed receipt' },
-];
 
 const GUIDES = {
   rules: [
@@ -120,8 +113,8 @@ const GUIDES = {
       img: '/images/mark-wallet.png?v=4',
       title: 'You sign',
       fit: 'icon',
-      blurb: 'Every execution is a transaction you approve in Phantom.',
-      detail: 'Every execution is a transaction you approve in Phantom. Overflow never holds a key and never submits an unsigned payload.',
+      blurb: 'Every execution is a transaction you approve in your wallet.',
+      detail: 'Every execution is a transaction you approve in your wallet. Overflow never holds a key and never submits an unsigned payload.',
     },
     {
       img: '/images/mark-receipt.png?v=4',
@@ -171,6 +164,9 @@ const NAV = [
 ];
 
 export default function App() {
+  const { signTransaction } = useWallet();
+  const { setVisible: openWalletModal } = useWalletModal();
+
   const [connection, setConnection] = useState(null);
   // A connected wallet is only an address. Data loads once it has SIGNED IN.
   const [signedIn, setSignedIn] = useState(false);
@@ -193,14 +189,14 @@ export default function App() {
   useEffect(() => {
     api.health().then((h) => {
       setHealth(h);
-      // Judge Demo Mode: sign in as the seeded demo wallet with no Phantom
+      // Judge Demo Mode: sign in as the seeded demo wallet with no wallet extension
       // required. Guarded on both ends against a real wallet's own silent
       // restore (WalletBar.jsx) winning the race and being clobbered by this.
       if (h?.demoMode && !currentSession()) {
         api.demoSession().then((session) => {
           if (currentSession()) return;
           setSession(session);
-          setConnection((c) => c || { address: session.wallet, wallet: null, account: null, demo: true });
+          setConnection((c) => c || { address: session.wallet, demo: true });
           setSignedIn((s) => s || true);
         }).catch(() => {});
       }
@@ -214,11 +210,11 @@ export default function App() {
     setMenuOpen(false);
     setTab('rules');
     // A demo session expiring (30 min TTL) shouldn't strand a judge mid-review
-    // behind a Phantom prompt -- silently re-establish it.
+    // behind a wallet prompt -- silently re-establish it.
     if (health?.demoMode) {
       api.demoSession().then((session) => {
         setSession(session);
-        setConnection({ address: session.wallet, wallet: null, account: null, demo: true });
+        setConnection({ address: session.wallet, demo: true });
         setSignedIn(true);
       }).catch(() => {});
     }
@@ -283,8 +279,16 @@ export default function App() {
       goTo('rules');
     } else {
       setPendingHeroRule(true);
-      requestPhantomConnect();
+      openWalletModal(true);
     }
+  }
+
+  /** Bridges wallet-adapter's Transaction signing to the base64 the backend speaks. */
+  async function signTransactionBase64ViaWallet(transactionBase64) {
+    if (!signTransaction) throw new Error('This wallet cannot sign transactions.');
+    const tx = VersionedTransaction.deserialize(base64ToBytes(transactionBase64));
+    const signed = await signTransaction(tx);
+    return bytesToBase64(signed.serialize());
   }
 
   useEffect(() => {
@@ -345,7 +349,7 @@ export default function App() {
           <WalletBar
             connection={connection}
             signedIn={signedIn}
-            onConnect={(c) => setConnection(c)}
+            onConnect={(c) => setConnection({ ...c, signTransactionBase64: signTransactionBase64ViaWallet })}
             onSignedIn={() => { setSignedIn(true); setMenuOpen(false); }}
             onDisconnect={() => { setConnection(null); setSignedIn(false); setMenuOpen(false); setTab('rules'); }}
           />
@@ -369,6 +373,7 @@ export default function App() {
           signedIn={signedIn}
           onTryReplay={() => goTo('replay')}
           onRegisterOnchain={startHeroRegistration}
+          onConnectWallet={() => openWalletModal(true)}
         />
       )}
 
@@ -383,11 +388,9 @@ export default function App() {
       <div className="page" key={tab}>
       {tab === 'rules' && (
         <>
-          {connection ? (
-            <Stage title="How a rule works" items={GUIDES.rules} variant="stream" />
-          ) : (
-            <Guide title="How a rule works" items={GUIDES.rules} />
-          )}
+          {/* The Hero above already carries the flow strip and live chart --
+              this stays a plain 3-card guide so the page doesn't repeat it. */}
+          <Guide title="How a rule works" items={GUIDES.rules} />
           <div className="section-head">
             <div>
               <div className="section-title">Your earnings rules</div>
@@ -408,11 +411,11 @@ export default function App() {
           {!connection && (
             <EmptyState
               mark="wallet"
-              title="Connect Phantom to begin"
+              title="Connect a wallet to begin"
               sub="Connecting only shares an address. A later signature proves you control it, and still moves no funds."
             >
-              <button type="button" className="btn primary" onClick={requestPhantomConnect}>
-                Connect Phantom
+              <button type="button" className="btn primary" onClick={() => openWalletModal(true)}>
+                Connect wallet
               </button>
             </EmptyState>
           )}
@@ -421,7 +424,7 @@ export default function App() {
             <EmptyState
               mark="wallet"
               title="Sign in to continue"
-              sub="Phantom will ask you to sign a one-time message. It authorises no transaction."
+              sub="Your wallet will ask you to sign a one-time message. It authorises no transaction."
             />
           )}
 
@@ -472,7 +475,7 @@ export default function App() {
               <EmptyState
                 mark="dest"
                 title="Sign in to see what your earnings built"
-                sub="Connect and sign in with Phantom to view holdings that receipts have already proven."
+                sub="Connect and sign in with your wallet to view holdings that receipts have already proven."
               />
             )}
         </>
@@ -606,7 +609,7 @@ function NavList({ items, tab, onSelect, className, label }) {
   );
 }
 
-function Hero({ health, signedIn, onTryReplay, onRegisterOnchain }) {
+function Hero({ health, signedIn, onTryReplay, onRegisterOnchain, onConnectWallet }) {
   const registryLive = Boolean(health?.registry?.configured);
   return (
     <section className="hero">
@@ -617,18 +620,9 @@ function Hero({ health, signedIn, onTryReplay, onRegisterOnchain }) {
         </span>
         <h1 className="hero-title">Keep the stock.<br /><em>Program the dividend.</em></h1>
         <p className="hero-sub">
-          Keep xStocks equity or Kamino USDC. Route only the dividend, or yield above the floor.
+          Your stock or savings stay exactly where they are — Overflow never touches that principal.
+          Only the new profit they generate gets automatically invested, and only when the price is fair.
         </p>
-
-        <ol className="hero-flow-strip" aria-label="The hero flow, step by step">
-          {HERO_FLOW_STAGES.map((s, i) => (
-            <li key={s.label}>
-              <span className="hero-flow-step">{i + 1}</span>
-              <b>{s.label}</b>
-              <span>{s.sub}</span>
-            </li>
-          ))}
-        </ol>
 
         <ul className="hero-stats">
           <li><span className="k">Protected Capital</span><span className="v locked">${HERO_STATS.protectedCapitalUsd}</span></li>
@@ -637,7 +631,7 @@ function Hero({ health, signedIn, onTryReplay, onRegisterOnchain }) {
           <li><span className="k">Firewall Status</span><span className="v preserved-yes">{HERO_STATS.firewallStatus}</span></li>
           <li><span className="k">Principal Used</span><span className="v locked">$0.00</span></li>
         </ul>
-        <p className="hero-stats-caption">From the seeded Kamino → OPENAI story below — real numbers, not a mockup.</p>
+        <p className="hero-stats-caption">A real example from below: $10,000 in Kamino USDC, its earnings routed to OpenAI stock.</p>
 
         {signedIn ? (
           <p className="hero-live-note">Signed in — this exact rule is live in your list below ↓</p>
@@ -648,20 +642,13 @@ function Hero({ health, signedIn, onTryReplay, onRegisterOnchain }) {
                 Register this rule on Solana — free, devnet
               </button>
             ) : (
-              <button type="button" className="btn primary" onClick={requestPhantomConnect}>Connect Phantom</button>
+              <button type="button" className="btn primary" onClick={onConnectWallet}>Connect wallet</button>
             )}
             <button type="button" className="btn ghost" onClick={onTryReplay}>
               Try Replay — no wallet needed
             </button>
           </div>
         )}
-
-        <ul className="spec-strip">
-          <li><b>Non-custodial</b><span>Overflow never holds your keys or your funds.</span></li>
-          <li><b>Price-gated</b><span>A bad quote gets blocked, not routed.</span></li>
-          <li><b>You sign</b><span>Every execution needs your Phantom signature.</span></li>
-          <li><b>On-chain proof</b><span>A real Solana transaction, not just a claim — click to verify.</span></li>
-        </ul>
       </div>
       <LiveBoard variant="stream" showFlow />
     </section>

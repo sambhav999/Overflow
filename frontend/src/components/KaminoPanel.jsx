@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
-import { signTransactionBase64 } from '../lib/wallet.js';
 import { formatUsd, explorerUrl, shortAddress, formatActionError } from '../lib/format.js';
 
 const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
@@ -39,11 +38,7 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
   }, [connection?.address, result]);
 
   async function signAndSend(prepared, submitFn) {
-    const signed = await signTransactionBase64({
-      wallet: connection.wallet,
-      account: connection.account,
-      transactionBase64: prepared.transaction,
-    });
+    const signed = await connection.signTransactionBase64(prepared.transaction);
     // The server checks the signed message against the intent it recorded at
     // prepare time; it does not trust anything else sent here.
     return submitFn({ signedTransaction: signed, intentId: prepared.intentId });
@@ -128,7 +123,7 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
         </div>
         {connection?.demo && (
           <div className="hint" style={{ gridColumn: '1 / -1' }}>
-            Judge Demo Mode shows what already happened. Connect a real Phantom wallet to deposit or withdraw for real.
+            Judge Demo Mode shows what already happened. Connect a real wallet to deposit or withdraw for real.
           </div>
         )}
       </div>

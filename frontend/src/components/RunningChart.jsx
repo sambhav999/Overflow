@@ -221,12 +221,12 @@ export default function RunningChart({ variant = 'stream' }) {
 
   const last = Number(chart.last);
   const readout = variant === 'replay'
-    ? last.toFixed(3)
+    ? `${last.toFixed(3)}×`
     : variant === 'band'
       ? `${last > 0 ? '+' : ''}${last.toFixed(0)} bps`
       : variant === 'steps'
-        ? `${last.toFixed(0)}`
-        : last.toFixed(1);
+        ? `${last.toFixed(0)} tx`
+        : `$${last.toFixed(1)}`;
 
   return (
     <div className="rc">
