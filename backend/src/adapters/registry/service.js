@@ -89,9 +89,15 @@ export async function preparePostReceiptTx({ rule, receipt }) {
   if (!rule?.onchainPda) {
     return { available: false, reason: 'RULE_NOT_ONCHAIN' };
   }
-  const spent = receipt?.proofs?.authorisedSourceDelta
+  // authorisedSourceDelta is a signed delta (a spend is negative -- see
+  // verify.js's exactSpendProof: "expected = -BigInt(authorisedRaw)"), but the
+  // registry's sourceSpent field is an unsigned magnitude. Without abs(), any
+  // real receipt's negative delta overflows the u64 encoder before a
+  // transaction is even built.
+  const spentRaw = receipt?.proofs?.authorisedSourceDelta
     ?? receipt?.outputs?.routedRaw
     ?? '0';
+  const spent = (BigInt(spentRaw) < 0n ? -BigInt(spentRaw) : BigInt(spentRaw)).toString();
   const received = receipt?.proofs?.destinationReceivedRaw
     ?? receipt?.outputs?.destinationReceivedRaw
     ?? receipt?.outputs?.outputAmountResult

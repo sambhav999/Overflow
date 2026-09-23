@@ -6,17 +6,55 @@
 
 <p align="center">
   Live app: <a href="https://noisy-sky-fa9c.rj838486.workers.dev">noisy-sky-fa9c.rj838486.workers.dev</a>
-  · API: <a href="https://solana-poc.onrender.com">solana-poc.onrender.com</a>
+  · API health: <a href="https://solana-poc.onrender.com/api/health">solana-poc.onrender.com/api/health</a>
   · Program (devnet): <code>nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp</code>
 </p>
 
+> Overflow keeps the source asset and principal in the user's wallet and routes only
+> newly generated value — classified dividends or yield above a stored floor.
+
 ---
+
+## Demo
+
+| | |
+|---|---|
+| Live demo | https://noisy-sky-fa9c.rj838486.workers.dev |
+| Health check | https://solana-poc.onrender.com/api/health |
+| Demo Mode | The public deployment runs with `DEMO_MODE=true`. No Phantom wallet is required — the app signs you in automatically as a seeded demo wallet, against an in-memory database, with every fund-moving route hard-blocked server-side (`blockedInDemoMode`, `backend/src/routes/index.js`). See [Judge quick-start](#judge-quick-start) below. |
+
+## Proof
+
+Two real, independently-confirmed **devnet** transactions against the deployed
+[Overflow Registry program](programs/overflow-registry), `nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp`,
+for the hero rule (Kamino USDC → PreStocks OPENAI):
+
+| Instruction | Signature | Explorer |
+|---|---|---|
+| `create_rule` | `NNAYBVJbiaYQjFZ7JF4J9kLBfY6Sq6hj3dhKKqWBdyGxb6kU9Xy5X5DZjUzEbTKZVhRrowsA2bcuVbH4AnMbmLT` | [Solscan (devnet)](https://solscan.io/tx/NNAYBVJbiaYQjFZ7JF4J9kLBfY6Sq6hj3dhKKqWBdyGxb6kU9Xy5X5DZjUzEbTKZVhRrowsA2bcuVbH4AnMbmLT?cluster=devnet) |
+| `post_receipt` | `4bVHYZfUyku39w3JbEduqHiAyD9sWLUrceWcKJJFKprFaZjL8M334DZXsakn7GEEutAnFCts6WunZVrKUSLSWEa2` | [Solscan (devnet)](https://solscan.io/tx/4bVHYZfUyku39w3JbEduqHiAyD9sWLUrceWcKJJFKprFaZjL8M334DZXsakn7GEEutAnFCts6WunZVrKUSLSWEa2?cluster=devnet) |
+
+Both independently verified with `solana confirm <signature> --url devnet -v`: `Status: Ok`, `Finalized`.
+
+> **The program records the receipt; the wallet holds the assets.** The registry does not
+> independently enforce or mathematically guarantee capital preservation — it is an
+> immutable, timestamped log of what the backend already computed and the user already
+> signed. The stronger proof is the full chain: **execution → chain reconciliation →
+> verified receipt → optional verifier attestation** (see [Jupiter flow](#jupiter-flow)
+> and the `Verdict`/verifier-signature fields on every receipt).
+
+**Devnet only.** No mainnet transaction has been made or is implied here — the registry is
+not deployed to mainnet-beta (see [deploy/mainnet.md](deploy/mainnet.md) for that checklist,
+unused so far).
 
 ## Judge quick-start
 
-No funded wallet or RPC key needed. Runs real external APIs (xStocks, PreStocks, Jupiter)
-against an in-memory database seeded with one completed, verified execution, and hard-blocks
-every fund-moving route so nothing can actually be signed or broadcast.
+No funded wallet or RPC key needed. The app signs you in automatically. Runs real external
+APIs (xStocks, PreStocks, Jupiter) against an in-memory database seeded with two completed,
+verified executions (a dividend and a Kamino harvest) plus a seeded Capital Firewall
+decision, and hard-blocks every fund-moving route so nothing can actually be signed or
+broadcast. A third story — a real 10:1 split correctly refused — is one click away in
+Replay, using real historical data, no seeding needed.
 
 ```bash
 cd backend
@@ -25,10 +63,18 @@ npm test                      # 82 tests, no network required
 npm run simulate:judge        # http://localhost:8787, DEMO_MODE=true
 ```
 
-Then, separately, `cd frontend && npm install && npm run dev` (http://localhost:5173) and point
-it at the demo backend as usual — the on-chain registry step in Setup below is optional and can
-be skipped entirely for a judge run. Or skip local setup entirely and use the live deployment
-linked above.
+Then, separately:
+
+```bash
+cd frontend
+npm ci
+npm run build                 # production bundle in frontend/dist
+npm run dev                   # http://localhost:5173
+```
+
+Point the frontend at the local demo backend as usual — the on-chain registry step in Setup
+below is optional and can be skipped entirely for a judge run. Or skip local setup entirely
+and use the live deployment linked above.
 
 Overflow is a programmable earnings layer for onchain assets. It preserves a source
 position and routes only the value that position **newly generates** into a destination
@@ -203,6 +249,8 @@ guarantee.
 │   adapters/ ─┬─ xstocks/  assets · multiplier · corporateActions                     │
 │              ├─ jupiter/  order → sign → execute   (API key stays here)              │
 │              ├─ kamino/   klend-sdk, dynamically loaded, degrades gracefully         │
+│              ├─ providers/ PreStocks: verified mint/markPrice/tokenPrice fields      │
+│              ├─ pyth/      Pyth Pro reads for PYTH_PARITY (unverified, no key yet)   │
 │              ├─ solana/   dependency-free JSON-RPC reads                             │
 │              └─ registry/ Overflow Receipt Registry encoder + PDA                    │
 │                                                                                       │
@@ -328,16 +376,21 @@ Requires **Node 22+** (uses the built-in `node:sqlite`, so there is no native bu
 # backend
 cd backend
 cp .env.example .env          # set SOLANA_RPC_URL at minimum
-npm install
+npm ci
 npm test                      # 82 tests, no network required
 npm run dev                   # http://localhost:8787
 
 # frontend
 cd ../frontend
 cp .env.example .env
-npm install
+npm ci
+npm run build                 # production bundle in frontend/dist
 npm run dev                   # http://localhost:5173
 ```
+
+`npm ci` installs exactly what's pinned in `package-lock.json` — no local `node_modules`
+state is assumed. Verified end to end from a clean install (`node_modules` removed, not
+just `rm -rf` on a fresh clone) immediately before this document was last updated.
 
 ### Environment
 
@@ -365,7 +418,10 @@ klend-sdk still imports. These pins are recorded in `backend/package.json` under
 `optionalDependencies` and `overrides`.
 
 The Kamino adapter loads dynamically and degrades gracefully — the dividend rule works
-whether or not the Kamino dependency resolves.
+whether or not the Kamino dependency resolves. `decimal.js` is a hard `dependency`, not
+optional: `adapters/kamino/vault.js` imports it at runtime for the interest rule, and an
+`optionalDependency` can be silently skipped by `npm ci` on any install hiccup — that
+would break a core feature without `npm ci` itself ever failing.
 
 ---
 
@@ -451,5 +507,10 @@ cd backend && npm test
 - [ ] `JUPITER_API_KEY` set
 - [ ] `KAMINO_USDC_VAULT` verified live
 - [x] Deployed URL: frontend — https://noisy-sky-fa9c.rj838486.workers.dev · API — https://solana-poc.onrender.com
+- [ ] Render env vars set to activate the on-chain registry on the **live** backend
+      (verified locally only, in this session — see [deploy/devnet.md](deploy/devnet.md)):
+      `OVERFLOW_REGISTRY_PROGRAM_ID=nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp`,
+      `NETWORK=devnet`, `SOLANA_RPC_URL=https://api.devnet.solana.com`, `DEMO_MODE=true`
 - [ ] Demo video: _______
-- [ ] Confirmed transaction signatures: _______
+- [x] Confirmed transaction signatures: see [Proof](#proof) — real, devnet, independently
+      verified with `solana confirm`
