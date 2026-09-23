@@ -24,6 +24,9 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
 
   const [sol, setSol] = useState(null);
   const [solError, setSolError] = useState(null);
+  const [warnDismissed, setWarnDismissed] = useState(false);
+
+  useEffect(() => { setWarnDismissed(false); }, [connection?.address]);
 
   useEffect(() => {
     if (!connection?.address || !signedIn || connection?.demo) {
@@ -189,8 +192,16 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
             <IconPower width={13} height={13} />
           </button>
         </div>
-        {lowSol && (
+        {lowSol && !warnDismissed && (
           <div className="wallet-sol-warn" role="status">
+            <button
+              type="button"
+              className="wallet-sol-warn-close"
+              onClick={() => setWarnDismissed(true)}
+              aria-label="Dismiss"
+            >
+              ×
+            </button>
             Not enough SOL for fees. Need about 0.003 SOL in this wallet.
           </div>
         )}

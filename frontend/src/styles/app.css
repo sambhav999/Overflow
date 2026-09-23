@@ -102,6 +102,7 @@ a { color: var(--flow); }
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  filter: blur(5px);
 }
 .webgl-field canvas {
   display: block;
@@ -277,10 +278,7 @@ a { color: var(--flow); }
 @media (max-width: 1180px) {
   .tag { display: none; }
 }
-@media (max-width: 1040px) and (min-width: 961px) {
-  .nav-btn { padding: 7px 9px; font-size: 13px; gap: 5px; }
-}
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
   .site-header { top: 0; }
   .header-inner.is-in {
     grid-template-columns: minmax(0, 1fr) auto auto;
@@ -688,10 +686,12 @@ a { color: var(--flow); }
     grid-column: 1 / -1;
     grid-row: auto;
   }
+  /* .hero-copy shares the row with the live-board panel here, so it's
+     already too narrow for 5 columns well before the hero itself stacks. */
+  .hero-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; padding-inline: var(--page-pad); }
-  .hero-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tab-stage { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
@@ -997,15 +997,36 @@ button.pill:focus-visible { outline: 2px solid var(--flow); outline-offset: 2px;
   top: calc(100% + 8px);
   right: 0;
   z-index: 8;
-  max-width: 240px;
-  padding: 8px 10px;
+  max-width: 260px;
+  padding: 10px 30px 10px 12px;
   border-radius: 10px;
-  background: var(--warn-soft);
+  background: var(--panel);
   color: var(--warn);
   font-size: 13px;
   line-height: 1.4;
   border: 1px solid var(--warn-border);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .5);
 }
+.wallet-sol-warn-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--warn);
+  opacity: .7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition: opacity .2s var(--ease), background .2s var(--ease);
+}
+.wallet-sol-warn-close:hover { opacity: 1; background: rgba(245, 197, 24, .14); }
 .wallet-chip .disconnect-btn {
   width: 22px; height: 22px; border-radius: 50%; border: none; background: transparent; color: var(--soft);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
