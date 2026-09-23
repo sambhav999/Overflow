@@ -134,12 +134,25 @@ router.get('/health', asyncRoute(async (_req, res) => {
 
 /* ------------------------------------------------------------------ auth -- */
 
+/**
+ * Wallets that implement Sign-In-With-Solana (Phantom included) check that the
+ * message's domain line matches window.location.host, and refuse to sign
+ * otherwise. Origin is what the browser actually sent this request from, so
+ * it's the one value guaranteed to match -- and CORS has already restricted
+ * which origins can reach this route at all.
+ */
+function requestDomain(req) {
+  const raw = req.headers.origin || req.headers.referer;
+  if (!raw) return 'Overflow';
+  try { return new URL(raw).host || 'Overflow'; } catch { return 'Overflow'; }
+}
+
 /** Step 1: a single-use message for the wallet to sign. */
 router.post('/auth/nonce', asyncRoute(async (req, res) => {
   const { wallet } = req.body || {};
   if (!wallet) return res.status(400).json({ error: 'wallet is required' });
   try {
-    res.json(createNonce(wallet));
+    res.json(createNonce(wallet, { domain: requestDomain(req) }));
   } catch (err) {
     res.status(400).json({ error: err.message, code: 'INVALID_WALLET' });
   }
