@@ -14,6 +14,7 @@ import { getSlot, getSolBalanceLamports, getTokenBalance, getMintInfo, getAccoun
 import { refreshBaselines } from '../services/drift.js';
 import { createNonce, verifySignIn, requireSession, issueSession, SESSION_TTL_MS } from '../auth/session.js';
 import { DEMO_WALLET } from '../db/seedDemo.js';
+import { lastXstocksSuccess } from '../adapters/xstocks/health.js';
 import { listAllDestinations, getDestination, PROVIDERS } from '../services/destinations.js';
 import { GUARD_MODES } from '../core/marketGuard.js';
 import { listDecisions, earningsRetained } from '../db/decisions.js';
@@ -125,7 +126,9 @@ router.get('/health', asyncRoute(async (_req, res) => {
     defaultKaminoVault: process.env.KAMINO_USDC_VAULT || null,
     registry: registryStatus(),
     mode: 'LIVE',
-    demoMode: process.env.DEMO_MODE === 'true',
+    demoMode,
+    seeded,
+    lastXstocksFetchAt: lastXstocksSuccess(),
   });
 }));
 

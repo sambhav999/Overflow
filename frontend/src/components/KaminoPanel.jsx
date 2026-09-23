@@ -26,7 +26,8 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
   }, [rule.id, result]);
 
   useEffect(() => {
-    if (!connection?.address) {
+    // A demo connection has no real on-chain account -- nothing to read.
+    if (!connection?.address || connection?.demo) {
       setUsdcAtomic(null);
       return undefined;
     }
@@ -117,13 +118,19 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-          <button className="btn primary" onClick={handleDeposit} disabled={busy || !amount || !connection || notEnoughUsdc}>
-            {phase === 'depositing' ? 'Preparing…' : phase === 'signing' ? 'Waiting for wallet…' : 'Deposit'}
+          <button className="btn primary" onClick={handleDeposit} disabled={busy || !amount || !connection || notEnoughUsdc || connection?.demo}>
+            {connection?.demo ? 'Connect a real wallet'
+              : phase === 'depositing' ? 'Preparing…' : phase === 'signing' ? 'Waiting for wallet…' : 'Deposit'}
           </button>
           <button className="btn danger" onClick={loadWithdrawPlan} disabled={busy || !connection || !rule.principalFloorAtomic}>
             Withdraw principal
           </button>
         </div>
+        {connection?.demo && (
+          <div className="hint" style={{ gridColumn: '1 / -1' }}>
+            Judge Demo Mode shows what already happened. Connect a real Phantom wallet to deposit or withdraw for real.
+          </div>
+        )}
       </div>
 
       {withdrawPlan?.ok && (
@@ -148,8 +155,8 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
             </div>
           )}
           <div className="controls">
-            <button className="btn danger" onClick={handleWithdrawPrincipal} disabled={busy}>
-              {phase === 'signing' ? 'Waiting for wallet…' : 'Sign & withdraw'}
+            <button className="btn danger" onClick={handleWithdrawPrincipal} disabled={busy || connection?.demo}>
+              {connection?.demo ? 'Connect a real wallet to sign' : phase === 'signing' ? 'Waiting for wallet…' : 'Sign & withdraw'}
             </button>
             <button className="btn" onClick={() => setWithdrawPlan(null)} disabled={busy}>Cancel</button>
           </div>

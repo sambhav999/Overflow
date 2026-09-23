@@ -186,8 +186,9 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
       ) : (
         <div className="controls">
           {phase === 'review' && prepared?.ok ? (
-            <button className="btn flow" onClick={handleExecute} disabled={phase === 'signing' || phase === 'submitting'}>
-              {phase === 'signing' ? 'Waiting for wallet…'
+            <button className="btn flow" onClick={handleExecute} disabled={phase === 'signing' || phase === 'submitting' || connection?.demo}>
+              {connection?.demo ? 'Connect a real wallet to sign'
+                : phase === 'signing' ? 'Waiting for wallet…'
                 : phase === 'submitting' ? 'Confirming…'
                 : prepared.stage === 'WITHDRAW' ? 'Sign withdrawal (1 of 2)'
                 : withdrawSignature ? 'Sign swap (2 of 2)' : 'Sign & execute'}
@@ -198,6 +199,11 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
             </button>
           )}
           {prepared && <button className="btn" onClick={() => { setPrepared(null); setPhase('idle'); }}>Reset</button>}
+        </div>
+      )}
+      {connection?.demo && (
+        <div className="hint" style={{ marginTop: 10 }}>
+          Judge Demo Mode shows what already happened. Connect a real Phantom wallet to execute a new rule.
         </div>
       )}
 

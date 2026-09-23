@@ -5,6 +5,7 @@
  * below is what the service actually returns, not what documentation implies.
  */
 import { extractRawJsonNumber } from '../../core/units.js';
+import { recordXstocksSuccess } from './health.js';
 
 const DEFAULT_BASE = process.env.XSTOCKS_API_BASE || 'https://api.xstocks.fi/api/v2';
 const NETWORK = 'Solana';
@@ -16,6 +17,7 @@ async function getJson(url, { timeoutMs = 12_000 } = {}) {
     const res = await fetch(url, { signal: controller.signal });
     const text = await res.text();
     if (!res.ok) throw new Error(`xStocks ${res.status} on ${url}: ${text.slice(0, 200)}`);
+    recordXstocksSuccess();
     return { json: JSON.parse(text), text };
   } finally {
     clearTimeout(timer);

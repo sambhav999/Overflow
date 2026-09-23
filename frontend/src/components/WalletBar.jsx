@@ -39,7 +39,7 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
   const [solError, setSolError] = useState(null);
 
   useEffect(() => {
-    if (!connection?.address || !signedIn) {
+    if (!connection?.address || !signedIn || connection?.demo) {
       setSol(null);
       setSolError(null);
       return undefined;
@@ -252,6 +252,21 @@ export default function WalletBar({ connection, signedIn, onConnect, onSignedIn,
     </div>,
     document.body,
   );
+
+  if (connection?.demo && signedIn) {
+    return (
+      <div className="mast-right">
+        <div className="wallet-chip demo">
+          <span className="avatar"><IconWallet width={13} height={13} color="#fff" /></span>
+          <span className="addr">Judge Demo</span>
+        </div>
+        <button className="btn ghost small wallet-connect-real" onClick={handleConnect} disabled={Boolean(busy)}>
+          {busy ? <span className="spinner" /> : 'Connect real wallet'}
+        </button>
+        {walletModal}
+      </div>
+    );
+  }
 
   if (connection && signedIn) {
     const lowSol = typeof sol === 'number' && sol < 0.003;

@@ -15,7 +15,10 @@ export default function Portfolio({ connection, destinations, totalInvestedAtomi
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!connection || !destinations.length) { setHoldings([]); return; }
+    // A demo connection has no real on-chain account -- nothing to read, and
+    // scanning every destination for a wallet that can never hold one is
+    // just noise against a shared public RPC.
+    if (!connection || !destinations.length || connection?.demo) { setHoldings([]); return; }
     let cancelled = false;
     setLoading(true);
     const equities = destinations.filter((d) => !d.isStable);

@@ -50,10 +50,18 @@ export default function ReplayPanel() {
       <div className="grid2">
         <div className="field">
           <label>xStock symbol</label>
+          <div className="replay-presets">
+            <button type="button" className="pill" onClick={() => { setSymbol('MRKx'); setQuery('MRKx'); }}>
+              MRKx · dividend PASS
+            </button>
+            <button type="button" className="pill bad" onClick={() => { setSymbol('KLACx'); setQuery('KLACx'); }}>
+              KLACx · 10:1 split BLOCKED
+            </button>
+          </div>
           <form onSubmit={(e) => { e.preventDefault(); setQuery(symbol); }}>
             <input type="text" value={symbol} onChange={(e) => setSymbol(e.target.value.trim())} placeholder="MRKx, KLACx, NFLXx…" />
           </form>
-          <div className="hint">Try MRKx for dividends, or KLACx / NFLXx for a 10:1 split.</div>
+          <div className="hint">Or type any xStock symbol above.</div>
         </div>
         <div className="field">
           <label>Hypothetical holding (display units)</label>

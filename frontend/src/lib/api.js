@@ -133,6 +133,9 @@ async function request(path, options = {}) {
 
 export const api = {
   health: () => request('/health'),
+  // Judge Demo Mode only: a no-signature session for the seeded demo wallet.
+  // 404s outside demo mode (see /demo/session on the backend).
+  demoSession: () => request('/demo/session'),
   destinations: () => request('/assets/destinations'),
   asset: (symbol) => request(`/assets/${encodeURIComponent(symbol)}`),
   sourceRoutable: (symbol) => request(`/assets/${encodeURIComponent(symbol)}/routable`),

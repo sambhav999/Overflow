@@ -6,22 +6,23 @@ import { settleCreateRuleOnchain } from '../lib/onchain.js';
  * The rule reads like an email filter. That framing is the product: the user is
  * programming where earnings go, not managing a position.
  */
-export default function CreateRule({ connection, destinations, defaultKaminoVault = '', onCreated, onCancel }) {
-  const [sourceType, setSourceType] = useState('XSTOCK_DIVIDEND');
+export default function CreateRule({ connection, destinations, defaultKaminoVault = '', preset = null, onCreated, onCancel }) {
+  const [sourceType, setSourceType] = useState(preset?.sourceType ?? 'XSTOCK_DIVIDEND');
   const [sourceSymbol, setSourceSymbol] = useState('MCDx');
   // Provider-qualified ("PRESTOCKS:OPENAI"): symbols are not unique across providers.
-  const [destinationKey, setDestinationKey] = useState('XSTOCKS:SPYx');
-  const [guardMode, setGuardMode] = useState('NONE');
-  const [maxPremiumBps, setMaxPremiumBps] = useState('100');
-  const [minPremiumBps, setMinPremiumBps] = useState('-500');
-  const [minExecutionUsd, setMinExecutionUsd] = useState('5');
-  const [maxSlippageBps, setMaxSlippageBps] = useState('50');
+  const [destinationKey, setDestinationKey] = useState(preset?.destinationKey ?? 'XSTOCKS:SPYx');
+  const [guardMode, setGuardMode] = useState(preset?.guardMode ?? 'NONE');
+  const [maxPremiumBps, setMaxPremiumBps] = useState(preset?.maxPremiumBps ?? '100');
+  const [minPremiumBps, setMinPremiumBps] = useState(preset?.minPremiumBps ?? '-500');
+  const [minExecutionUsd, setMinExecutionUsd] = useState(preset?.minExecutionUsd ?? '5');
+  const [maxSlippageBps, setMaxSlippageBps] = useState(preset?.maxSlippageBps ?? '50');
   const [allowOvernight, setAllowOvernight] = useState(false);
-  const [principalFloorUsd, setPrincipalFloorUsd] = useState('');
+  const [principalFloorUsd, setPrincipalFloorUsd] = useState(preset?.principalFloorUsd ?? '');
   const [kaminoVault, setKaminoVault] = useState(defaultKaminoVault);
   const [check, setCheck] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const isDividend = sourceType === 'XSTOCK_DIVIDEND';
 
@@ -110,6 +111,13 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
     <form className="card" onSubmit={submit}>
       <div className="section-title" style={{ marginBottom: 16 }}>Create earnings rule</div>
 
+      {preset && (
+        <div className="notice" style={{ marginBottom: 16 }}>
+          Prefilled with the hero flow — Kamino USDC → Capital Firewall → PreStocks OpenAI.
+          Review it below, then sign in Phantom to register it on Solana for real.
+        </div>
+      )}
+
       <div className="rule-sentence">
         <span className="kw">WHEN</span>
         <div className="grid2">
@@ -168,51 +176,61 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
           })}
         </select>
 
-        <span className="kw">FIREWALL</span>
-        <div>
-          <select value={guardValid ? guardMode : 'NONE'} onChange={(e) => setGuardMode(e.target.value)}>
-            {guardOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          {guardMode !== 'NONE' && (
-            <div className="grid2" style={{ marginTop: 10 }}>
-              <div className="field">
-                <label>Block if it costs more than (bps over fair value)</label>
-                <input type="number" step="10" value={maxPremiumBps} onChange={(e) => setMaxPremiumBps(e.target.value)} />
+        <div className="rule-advanced-toggle-row">
+          <button type="button" className="rule-advanced-toggle" onClick={() => setShowAdvanced((v) => !v)}>
+            {showAdvanced ? '−' : '+'} Advanced
+            <span className="hint" style={{ margin: 0 }}>firewall band, execution threshold, timing</span>
+          </button>
+          {!showAdvanced && !bandValid && <div className="notice bad">The floor must be at or below the cap.</div>}
+        </div>
+
+        <div className={`rule-advanced-fields${showAdvanced ? '' : ' collapsed'}`}>
+          <span className="kw">FIREWALL</span>
+          <div>
+            <select value={guardValid ? guardMode : 'NONE'} onChange={(e) => setGuardMode(e.target.value)}>
+              {guardOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            {guardMode !== 'NONE' && (
+              <div className="grid2" style={{ marginTop: 10 }}>
+                <div className="field">
+                  <label>Block if it costs more than (bps over fair value)</label>
+                  <input type="number" step="10" value={maxPremiumBps} onChange={(e) => setMaxPremiumBps(e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>Block if it costs less than (bps, blank = no floor)</label>
+                  <input type="number" step="10" value={minPremiumBps} onChange={(e) => setMinPremiumBps(e.target.value)} />
+                </div>
               </div>
-              <div className="field">
-                <label>Block if it costs less than (bps, blank = no floor)</label>
-                <input type="number" step="10" value={minPremiumBps} onChange={(e) => setMinPremiumBps(e.target.value)} />
-              </div>
+            )}
+            <div className="hint">
+              {guardMode === 'NONE'
+                ? (isPrivate ? 'Private-market tokens often trade well above their mark. A firewall is strongly recommended.' : 'Earnings route at the executable price, subject to slippage.')
+                : 'Judged against the price you would actually pay - the live Jupiter quote. A block leaves your earnings untouched. The floor catches a stale mark or a broken market: a price far below fair value is a warning, not a bargain.'}
             </div>
-          )}
-          <div className="hint">
-            {guardMode === 'NONE'
-              ? (isPrivate ? 'Private-market tokens often trade well above their mark. A firewall is strongly recommended.' : 'Earnings route at the executable price, subject to slippage.')
-              : 'Judged against the price you would actually pay - the live Jupiter quote. A block leaves your earnings untouched. The floor catches a stale mark or a broken market: a price far below fair value is a warning, not a bargain.'}
+            {!bandValid && <div className="notice bad">The floor must be at or below the cap.</div>}
           </div>
-          {!bandValid && <div className="notice bad">The floor must be at or below the cap.</div>}
-        </div>
 
-        <span className="kw">EXECUTE</span>
-        <div className="grid2">
-          <div className="field">
-            <label>When earnings exceed (USD)</label>
-            <input type="number" min="0" step="0.5" value={minExecutionUsd} onChange={(e) => setMinExecutionUsd(e.target.value)} />
+          <span className="kw">EXECUTE</span>
+          <div className="grid2">
+            <div className="field">
+              <label>When earnings exceed (USD)</label>
+              <input type="number" min="0" step="0.5" value={minExecutionUsd} onChange={(e) => setMinExecutionUsd(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Max slippage (bps)</label>
+              <input type="number" min="1" max="500" value={maxSlippageBps} onChange={(e) => setMaxSlippageBps(e.target.value)} />
+            </div>
           </div>
-          <div className="field">
-            <label>Max slippage (bps)</label>
-            <input type="number" min="1" max="500" value={maxSlippageBps} onChange={(e) => setMaxSlippageBps(e.target.value)} />
-          </div>
-        </div>
 
-        <span className="kw">TIMING</span>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: 'var(--soft)' }}>
-          <input type="checkbox" checked={allowOvernight} onChange={(e) => setAllowOvernight(e.target.checked)} style={{ marginTop: 3 }} />
-          <span>
-            Allow execution during overnight/closed sessions. Dividends activate at 00:30 UTC, when the
-            book is thinnest; leaving this off defers execution to a deeper market.
-          </span>
-        </label>
+          <span className="kw">TIMING</span>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: 'var(--soft)' }}>
+            <input type="checkbox" checked={allowOvernight} onChange={(e) => setAllowOvernight(e.target.checked)} style={{ marginTop: 3 }} />
+            <span>
+              Allow execution during overnight/closed sessions. Dividends activate at 00:30 UTC, when the
+              book is thinnest; leaving this off defers execution to a deeper market.
+            </span>
+          </label>
+        </div>
       </div>
 
       {check?.loading && <div className="notice"><span className="spinner" /> Checking {sourceSymbol} has a live Jupiter route…</div>}
