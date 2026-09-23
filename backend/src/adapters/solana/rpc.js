@@ -15,7 +15,7 @@ export const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 export const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 function rpcUrl() {
-  return process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  return process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 }
 
 let requestId = 0;

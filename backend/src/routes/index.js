@@ -116,7 +116,7 @@ router.get('/health', asyncRoute(async (_req, res) => {
   res.json({
     ok: true,
     slot,
-    network: process.env.NETWORK || 'mainnet-beta',
+    network: process.env.NETWORK || 'devnet',
     rpcConfigured: Boolean(process.env.SOLANA_RPC_URL),
     jupiterKeyConfigured: Boolean(process.env.JUPITER_API_KEY),
     jupiterThrottle: limiterConfig(),
@@ -616,7 +616,7 @@ router.get('/transactions', asyncRoute(async (req, res) => {
   const chain = await getSignaturesForAddress(wallet, { limit: 40 }).catch(() => []);
   res.json({
     wallet,
-    network: process.env.NETWORK || 'mainnet-beta',
+    network: process.env.NETWORK || 'devnet',
     transactions: mergeTransactionLog({ chain, receipts, rules }),
   });
 }));

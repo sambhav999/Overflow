@@ -18,6 +18,7 @@
     "preflight": "node scripts/preflight.mjs",
     "preflight:prod": "node scripts/preflight.mjs --prod",
     "simulate:judge": "DEMO_MODE=true node src/index.js",
+    "judge:smoke": "node scripts/judge-smoke.mjs",
     "check": "npm run static:audit && npm test && npm run preflight",
     "static:audit": "node scripts/static-audit.mjs"
   },

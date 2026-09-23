@@ -77,7 +77,7 @@ export async function readPosition({ owner, vaultAddress, shareMint }) {
   try {
     const { KaminoVault, KaminoManager } = sdk;
     const { createSolanaRpc, address } = await import('@solana/kit');
-    const rpcClient = createSolanaRpc(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+    const rpcClient = createSolanaRpc(process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com');
 
     const vault = new KaminoVault(rpcClient, address(vaultAddress));
     const manager = new KaminoManager(rpcClient);
@@ -156,7 +156,7 @@ export async function buildWithdrawInstructions({ owner, vaultAddress, sharesAto
   const { createSolanaRpc, address, createNoopSigner } = await import('@solana/kit');
   const Decimal = (await import('decimal.js')).default;
 
-  const rpcClient = createSolanaRpc(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+  const rpcClient = createSolanaRpc(process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com');
   const vault = new KaminoVault(rpcClient, address(vaultAddress));
   const slot = await getSlot();
 
@@ -192,7 +192,7 @@ export async function buildDepositInstructions({ owner, vaultAddress, usdcAtomic
   const { createSolanaRpc, address, createNoopSigner } = await import('@solana/kit');
   const Decimal = (await import('decimal.js')).default;
 
-  const rpcClient = createSolanaRpc(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
+  const rpcClient = createSolanaRpc(process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com');
   const vault = new KaminoVault(rpcClient, address(vaultAddress));
   const manager = new KaminoManager(rpcClient);
 

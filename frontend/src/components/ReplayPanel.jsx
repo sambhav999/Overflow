@@ -54,8 +54,8 @@ export default function ReplayPanel() {
             <button type="button" className="pill" onClick={() => { setSymbol('MRKx'); setQuery('MRKx'); }}>
               MRKx · dividend PASS
             </button>
-            <button type="button" className="pill bad" onClick={() => { setSymbol('KLACx'); setQuery('KLACx'); }}>
-              KLACx · 10:1 split BLOCKED
+            <button type="button" className="pill warn" onClick={() => { setSymbol('KLACx'); setQuery('KLACx'); }}>
+              KLACx · 10:1 split RETAIN
             </button>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); setQuery(symbol); }}>
@@ -119,18 +119,18 @@ export default function ReplayPanel() {
           <div className="notice">{result.disclaimer}</div>
         </div>
       ) : (
-        <div className="card tight" style={{ borderColor: 'var(--bad)' }}>
-          <div className="eyebrow" style={{ color: 'var(--bad)', fontWeight: 600 }}>
-            REFUSED · {result.classification?.eventType}
+        <div className="card tight" style={{ borderColor: 'var(--warn)' }}>
+          <div className="eyebrow" style={{ color: 'var(--warn)', fontWeight: 600 }}>
+            RETAIN · {result.classification?.eventType}
           </div>
-          <div className="notice bad">{result.classification?.detail ?? result.reason}</div>
+          <div className="notice warn">{result.classification?.detail ?? result.reason}</div>
           {result.wouldHaveExtracted?.dividendRawAtomic && (
             <>
               <div className="receipt">
                 <div className="receipt-title">WHAT A NAIVE IMPLEMENTATION WOULD HAVE DONE</div>
                 <div className="receipt-row">
                   <span className="k">Would have routed</span>
-                  <span className="v" style={{ color: 'var(--bad)' }}>
+                  <span className="v" style={{ color: 'var(--warn)' }}>
                     {formatRaw(result.wouldHaveExtracted.dividendRawAtomic, 8, 8)} raw units
                     {' '}({(Number(result.wouldHaveExtracted.fractionBps) / 100).toFixed(2)}% of the position)
                   </span>

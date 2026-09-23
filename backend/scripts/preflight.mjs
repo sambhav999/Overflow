@@ -19,10 +19,25 @@ const warn = (l, d = '') => { console.log(`  ${prod ? 'FAIL' : 'WARN'}  ${l}${d 
 console.log(`\nOverflow preflight${prod ? ' (production)' : ''}\n`);
 
 // --- configuration ---
+// This submission is devnet + Judge Demo only -- see README and
+// deploy/devnet.md. --prod hard-fails on either sign of mainnet, rather
+// than just warning, so a misconfigured deploy cannot silently go live
+// against real funds.
+const network = process.env.NETWORK ?? 'devnet';
+const demoMode = process.env.DEMO_MODE === 'true';
+if (network === 'mainnet-beta') fail('NETWORK must not be mainnet-beta', 'this submission is devnet-only');
+else network === 'devnet' ? pass('network is devnet') : warn('network is neither devnet nor mainnet-beta', network);
+if (prod && demoMode) fail('DEMO_MODE must be unset for a Live Devnet --prod deploy', 'DEMO_MODE=true blocks every fund-moving route by design');
+
 process.env.SOLANA_RPC_URL ? pass('SOLANA_RPC_URL set') : warn('SOLANA_RPC_URL not set', 'public RPC will rate-limit under real use');
+process.env.SOLANA_RPC_URL?.includes('mainnet-beta.solana.com') && fail('SOLANA_RPC_URL points at mainnet-beta', process.env.SOLANA_RPC_URL);
 process.env.JUPITER_API_KEY ? pass('JUPITER_API_KEY set') : warn('JUPITER_API_KEY not set', `keyless; throttled to ${limiterConfig().mainRps} req/s`);
 process.env.KAMINO_USDC_VAULT ? pass('KAMINO_USDC_VAULT set', process.env.KAMINO_USDC_VAULT) : fail('KAMINO_USDC_VAULT not set');
-(process.env.NETWORK ?? 'mainnet-beta') === 'mainnet-beta' ? pass('network is mainnet-beta') : warn('network is not mainnet-beta', process.env.NETWORK);
+if (!demoMode) {
+  process.env.OVERFLOW_REGISTRY_PROGRAM_ID
+    ? pass('OVERFLOW_REGISTRY_PROGRAM_ID set', process.env.OVERFLOW_REGISTRY_PROGRAM_ID)
+    : warn('OVERFLOW_REGISTRY_PROGRAM_ID not set', 'create_rule/post_receipt will be skipped, not recorded on-chain');
+}
 
 // --- live dependencies ---
 const slot = await getSlot().catch((e) => ({ error: e.message }));
@@ -55,8 +70,7 @@ try {
     ? pass('rules carry drift baselines')
     : fail('rules missing drift baseline columns');
 
-  const demo = process.env.DEMO_MODE === 'true';
-  if (prod && !demo && (process.env.DATABASE_PATH ?? '').includes(':memory:')) fail('in-memory database in production');
+  if (prod && !demoMode && (process.env.DATABASE_PATH ?? '').includes(':memory:')) fail('in-memory database in production');
 } catch (e) {
   fail('database unusable', e.message);
 }

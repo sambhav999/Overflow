@@ -43,15 +43,16 @@ Both independently verified with `solana confirm <signature> --url devnet -v`: `
 > verified receipt → optional verifier attestation** (see [Jupiter flow](#jupiter-flow)
 > and the `Verdict`/verifier-signature fields on every receipt).
 
-**Devnet only.** No mainnet transaction has been made or is implied here — the registry is
-not deployed to mainnet-beta (see [deploy/mainnet.md](deploy/mainnet.md) for that checklist,
-unused so far).
+**Devnet only.** No mainnet transaction has been made or is implied here, and none is
+planned for this submission — the registry is not deployed to mainnet-beta, and there is no
+mainnet deploy path in this repo.
 
 ## Judge quick-start
 
 No funded wallet or RPC key needed. The app signs you in automatically. Runs real external
-APIs (xStocks, PreStocks, Jupiter) against an in-memory database seeded with two completed,
-verified executions (a dividend and a Kamino harvest) plus a seeded Capital Firewall
+APIs (xStocks, PreStocks, Jupiter) against an in-memory database seeded with two completed
+executions (a dividend and a Kamino harvest), labeled **SEEDED / DEMO** — never
+`VERIFIED_ON_CHAIN`, since no transaction backs them — plus a seeded Capital Firewall
 decision, and hard-blocks every fund-moving route so nothing can actually be signed or
 broadcast. A third story — a real 10:1 split correctly refused — is one click away in
 Replay, using real historical data, no seeding needed.

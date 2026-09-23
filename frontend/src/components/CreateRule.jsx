@@ -7,17 +7,20 @@ import { settleCreateRuleOnchain } from '../lib/onchain.js';
  * programming where earnings go, not managing a position.
  */
 export default function CreateRule({ connection, destinations, defaultKaminoVault = '', preset = null, onCreated, onCancel }) {
-  const [sourceType, setSourceType] = useState(preset?.sourceType ?? 'XSTOCK_DIVIDEND');
+  // Default to the hero flow (Kamino USDC -> OpenAI, firewall on) whether or
+  // not a preset was passed in -- the form should never open to something
+  // less concrete than the one story every visitor has already seen.
+  const [sourceType, setSourceType] = useState(preset?.sourceType ?? 'KAMINO_USDC');
   const [sourceSymbol, setSourceSymbol] = useState('MCDx');
   // Provider-qualified ("PRESTOCKS:OPENAI"): symbols are not unique across providers.
-  const [destinationKey, setDestinationKey] = useState(preset?.destinationKey ?? 'XSTOCKS:SPYx');
-  const [guardMode, setGuardMode] = useState(preset?.guardMode ?? 'NONE');
-  const [maxPremiumBps, setMaxPremiumBps] = useState(preset?.maxPremiumBps ?? '100');
-  const [minPremiumBps, setMinPremiumBps] = useState(preset?.minPremiumBps ?? '-500');
+  const [destinationKey, setDestinationKey] = useState(preset?.destinationKey ?? 'PRESTOCKS:OPENAI');
+  const [guardMode, setGuardMode] = useState(preset?.guardMode ?? 'TOKEN_PREMIUM');
+  const [maxPremiumBps, setMaxPremiumBps] = useState(preset?.maxPremiumBps ?? '150');
+  const [minPremiumBps, setMinPremiumBps] = useState(preset?.minPremiumBps ?? '-300');
   const [minExecutionUsd, setMinExecutionUsd] = useState(preset?.minExecutionUsd ?? '5');
   const [maxSlippageBps, setMaxSlippageBps] = useState(preset?.maxSlippageBps ?? '50');
   const [allowOvernight, setAllowOvernight] = useState(false);
-  const [principalFloorUsd, setPrincipalFloorUsd] = useState(preset?.principalFloorUsd ?? '');
+  const [principalFloorUsd, setPrincipalFloorUsd] = useState(preset?.principalFloorUsd ?? '10000');
   const [kaminoVault, setKaminoVault] = useState(defaultKaminoVault);
   const [check, setCheck] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -158,13 +161,7 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
         <select value={destinationKey} onChange={(e) => {
           const next = destinations.find((d) => `${d.provider}:${d.symbol}` === e.target.value);
           setDestinationKey(e.target.value);
-          // Private markets default to TOKEN_PREMIUM (premiums run widest there);
-          // public stocks default to PYTH_PARITY, checked against the listed
-          // underlying rather than a self-reported mark -- visible by default,
-          // not something a judge has to discover in a dropdown.
-          if (next?.category === 'PRIVATE_MARKET' && next?.markPriceUsd) setGuardMode('TOKEN_PREMIUM');
-          else if (next?.category === 'PUBLIC_STOCK') setGuardMode('PYTH_PARITY');
-          else setGuardMode('NONE');
+          setGuardMode(defaultGuardFor(next));
         }}>
           {[['PUBLIC_STOCK', 'Public stocks - xStocks'], ['PRIVATE_MARKET', 'Private markets - PreStocks'], ['STABLE', 'Stable']].map(([cat, label]) => {
             const group = destinations.filter((d) => d.category === cat);
@@ -180,6 +177,16 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
             );
           })}
         </select>
+
+        <span className="kw">FIREWALL</span>
+        <label className="rule-firewall-toggle">
+          <input
+            type="checkbox"
+            checked={guardMode !== 'NONE'}
+            onChange={(e) => setGuardMode(e.target.checked ? defaultGuardFor(selected) : 'NONE')}
+          />
+          <span>{guardMode !== 'NONE' ? 'On — blocks a bad quote before it can execute' : 'Off — executes at any price within slippage'}</span>
+        </label>
 
         <div className="rule-advanced-toggle-row">
           <button type="button" className="rule-advanced-toggle" onClick={() => setShowAdvanced((v) => !v)}>
@@ -261,6 +268,15 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
       </div>
     </form>
   );
+}
+
+// Private markets default to TOKEN_PREMIUM (premiums run widest there);
+// public stocks default to PYTH_PARITY, checked against the listed
+// underlying rather than a self-reported mark.
+function defaultGuardFor(destination) {
+  if (destination?.category === 'PRIVATE_MARKET' && destination?.markPriceUsd) return 'TOKEN_PREMIUM';
+  if (destination?.category === 'PUBLIC_STOCK') return 'PYTH_PARITY';
+  return 'NONE';
 }
 
 function toAtomic(value, decimals) {

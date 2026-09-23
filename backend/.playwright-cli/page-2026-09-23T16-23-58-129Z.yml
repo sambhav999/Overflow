@@ -1,0 +1,205 @@
+- generic [ref=e2]:
+  - link "Skip to content" [ref=e3] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - img "Overflow" [ref=e8]
+        - generic [ref=e9]:
+          - generic [ref=e10]: Overflow
+          - generic [ref=e11]: Keep the source
+      - navigation "Primary" [ref=e12]:
+        - button "Earnings rules" [ref=e13] [cursor=pointer]
+        - button "Earnings built" [ref=e19] [cursor=pointer]
+        - button "Capital Firewall (1)" [ref=e143] [cursor=pointer]
+        - button "Receipts" [ref=e28] [cursor=pointer]
+        - button "Replay no wallet" [ref=e33] [cursor=pointer]:
+          - generic [ref=e37]: Replay
+          - generic [ref=e38]: no wallet
+      - generic [ref=e39]:
+        - generic [ref=e144]: Judge Demo
+        - button "Connect real wallet" [ref=e150] [cursor=pointer]
+  - generic [ref=e102]:
+    - status [ref=e152]: JUDGE DEMO MODE — in-memory data, real external APIs, fund-moving routes disabled
+    - generic [ref=e336]:
+      - generic [ref=e337]:
+        - generic [ref=e338]:
+          - heading "How an execution is proven" [level=2] [ref=e339]
+          - generic [ref=e340]:
+            - button "You sign Every execution is a transaction you approve in your wallet." [ref=e341] [cursor=pointer]:
+              - generic [ref=e343]: "01"
+              - generic [ref=e344]:
+                - generic [ref=e345]: You sign
+                - generic [ref=e346]: Every execution is a transaction you approve in your wallet.
+            - button "Solana confirms Only a confirmed transaction ever counts as built." [ref=e347] [cursor=pointer]:
+              - generic [ref=e349]: "02"
+              - generic [ref=e350]:
+                - generic [ref=e351]: Solana confirms
+                - generic [ref=e352]: Only a confirmed transaction ever counts as built.
+            - button "Source survived Your principal or equity lot is untouched after the harvest." [ref=e353] [cursor=pointer]:
+              - generic [ref=e355]: "03"
+              - generic [ref=e356]:
+                - generic [ref=e357]: Source survived
+                - generic [ref=e358]: Your principal or equity lot is untouched after the harvest.
+        - generic [ref=e360]:
+          - generic [ref=e361]:
+            - generic [ref=e362]: Illustrative
+            - generic [ref=e364]: Confirmations on Solana
+            - generic [ref=e365]:
+              - generic [ref=e366]: Confirmed
+              - generic [ref=e367]: Final
+            - generic [ref=e368]: 5 tx
+          - img "Confirmations on Solana" [ref=e369]
+      - generic [ref=e375]:
+        - generic [ref=e376]: Transactions
+        - paragraph [ref=e377]: Every signature from this wallet. Click a row to open Solscan.
+      - generic [ref=e378]:
+        - generic [ref=e379]: No transactions yet
+        - paragraph [ref=e380]: Confirmed harvests, rule registrations, and other signatures from this wallet appear here. Click a row to open the explorer.
+      - generic [ref=e382]:
+        - generic [ref=e383]: Execution receipts
+        - paragraph [ref=e384]: "The audit trail for each harvest: source survived, destination credited, signature yours."
+      - generic [ref=e385]:
+        - generic [ref=e386]: PROOF OF PRESERVATION — DIVIDEND RULE · CONFIRMED
+        - generic [ref=e387]:
+          - generic [ref=e388]: ◆SEEDED / DEMO
+          - generic [ref=e389]: "Seeded demo data: run through the real dividend extraction formula, but no transaction was submitted or verified on-chain."
+          - generic [ref=e390]:
+            - generic [ref=e391]:
+              - generic [ref=e392]: ✓
+              - generic [ref=e393]: source spend equals the authorised amount
+            - generic [ref=e394]:
+              - generic [ref=e395]: ✓
+              - generic [ref=e396]: source delta readable from this transaction
+            - generic [ref=e397]:
+              - generic [ref=e398]: ✓
+              - generic [ref=e399]: destination token increased in this transaction
+        - generic [ref=e400]:
+          - generic [ref=e401]: Source
+          - generic [ref=e402]: MRKx
+        - generic [ref=e403]:
+          - generic [ref=e404]: Corporate action
+          - generic [ref=e405]: MRKx-2025-10-07-dividend
+        - generic [ref=e406]:
+          - generic [ref=e407]: Event type
+          - generic [ref=e408]: Dividend
+        - separator [ref=e409]
+        - generic [ref=e410]:
+          - generic [ref=e411]: Pre-event exposure
+          - generic [ref=e412]: 10.00000000 MRKx
+        - generic [ref=e413]:
+          - generic [ref=e414]: Multiplier
+          - generic [ref=e415]: 1.000000000000000000 → 1.006441479605000000
+        - generic [ref=e416]:
+          - generic [ref=e417]: Dividend-created exposure
+          - generic [ref=e418]: 0.06441479 MRKx
+        - generic [ref=e419]:
+          - generic [ref=e420]: Raw units routed
+          - generic [ref=e421]: "6400252"
+        - separator [ref=e422]
+        - generic [ref=e423]:
+          - generic [ref=e424]: Routed to
+          - generic [ref=e425]: USDC
+        - generic [ref=e426]:
+          - generic [ref=e427]: Received
+          - generic [ref=e428]: "5.470000"
+        - generic [ref=e429]:
+          - generic [ref=e430]: Remaining source exposure
+          - generic [ref=e431]: 10.00000000 MRKx
+        - separator [ref=e432]
+        - generic [ref=e433]:
+          - generic [ref=e434]: Authorized spend
+          - generic [ref=e435]: 0.06400252 MRKx
+        - generic [ref=e436]:
+          - generic [ref=e437]: Observed spend
+          - generic [ref=e438]: 0.06400252 MRKx
+        - generic [ref=e439]:
+          - generic [ref=e440]: Protected capital intentionally consumed
+          - generic [ref=e441]: $0.00 ✓
+        - separator [ref=e442]
+        - generic [ref=e443]:
+          - generic [ref=e444]: Solana tx
+          - generic [ref=e445]: — no chain tx (illustrative) —
+        - generic [ref=e446]:
+          - generic [ref=e447]: Policy hash
+          - generic [ref=e448]: 6a1e7060…2c716a
+        - generic [ref=e449]:
+          - generic [ref=e450]: Timestamp
+          - generic [ref=e451]: 23 Sept 2026, 21:47
+        - button "Download proof JSON" [ref=e453] [cursor=pointer]
+      - generic [ref=e454]:
+        - generic [ref=e455]: PROOF OF PRESERVATION — INTEREST RULE · CONFIRMED
+        - generic [ref=e456]:
+          - generic [ref=e457]: ◆SEEDED / DEMO
+          - generic [ref=e458]: "Seeded demo data: the floor/earnings math ran through the real preservation formula, but no transaction was submitted or verified on-chain."
+          - generic [ref=e459]:
+            - generic [ref=e460]:
+              - generic [ref=e461]: ✓
+              - generic [ref=e462]: source spend equals the authorised amount
+            - generic [ref=e463]:
+              - generic [ref=e464]: ✓
+              - generic [ref=e465]: source delta readable from this transaction
+            - generic [ref=e466]:
+              - generic [ref=e467]: ✓
+              - generic [ref=e468]: destination token increased in this transaction
+            - generic [ref=e469]:
+              - generic [ref=e470]: ✓
+              - generic [ref=e471]: principal floor still covered
+        - generic [ref=e472]:
+          - generic [ref=e473]: Principal floor
+          - generic [ref=e474]: $10,000.00
+        - generic [ref=e475]:
+          - generic [ref=e476]: Redeemable value
+          - generic [ref=e477]: $10,186.40
+        - generic [ref=e478]:
+          - generic [ref=e479]: Safety buffer
+          - generic [ref=e480]: $5.00
+        - generic [ref=e481]:
+          - generic [ref=e482]: Earnings harvested
+          - generic [ref=e483]: $186.40
+        - separator [ref=e484]
+        - generic [ref=e485]:
+          - generic [ref=e486]: Destination
+          - generic [ref=e487]: OPENAI
+        - generic [ref=e488]:
+          - generic [ref=e489]: Received
+          - generic [ref=e490]: "0.09820000"
+        - generic [ref=e491]:
+          - generic [ref=e492]: Principal used to buy
+          - generic [ref=e493]: SEEDED / DEMO — not a live proof
+        - separator [ref=e494]
+        - generic [ref=e495]:
+          - generic [ref=e496]: Authorized spend
+          - generic [ref=e497]: $186.40
+        - generic [ref=e498]:
+          - generic [ref=e499]: Observed spend
+          - generic [ref=e500]: $186.40
+        - generic [ref=e501]:
+          - generic [ref=e502]: Protected capital intentionally consumed
+          - generic [ref=e503]: $0.00 ✓
+        - separator [ref=e504]
+        - generic [ref=e505]:
+          - generic [ref=e506]: Solana tx
+          - generic [ref=e507]: — no chain tx (illustrative) —
+        - generic [ref=e508]:
+          - generic [ref=e509]: Policy hash
+          - generic [ref=e510]: 710dc7b0…086d97
+        - generic [ref=e511]:
+          - generic [ref=e512]: Timestamp
+          - generic [ref=e513]: 23 Sept 2026, 21:47
+        - button "Download proof JSON" [ref=e515] [cursor=pointer]
+    - contentinfo [ref=e134]:
+      - generic [ref=e137]:
+        - generic [ref=e138]: Overflow
+        - generic [ref=e139]: Keep the source
+      - navigation "Footer" [ref=e309]:
+        - button "Earnings rules" [ref=e310] [cursor=pointer]
+        - button "Earnings built" [ref=e316] [cursor=pointer]
+        - button "Capital Firewall (1)" [ref=e320] [cursor=pointer]
+        - button "Receipts" [active] [ref=e325] [cursor=pointer]
+        - button "Replay no wallet" [ref=e330] [cursor=pointer]:
+          - generic [ref=e334]: Replay
+          - generic [ref=e335]: no wallet
+      - generic [ref=e140]:
+        - paragraph [ref=e141]: Overflow preserves a source position and routes only the value it newly generates. For an xStocks dividend that means isolating exactly the raw Token-2022 quantity the multiplier change created; for Kamino it means spending only value above a stored principal floor.
+        - paragraph [ref=e142]: “Preserved” is an accounting and allocation rule, not a capital guarantee. USDC, Kamino, smart contracts, liquidity and tokenized-equity issuers all carry risk, and these xStocks mints carry Token-2022 transfer-hook, permanent-delegate and pausable extensions. Tokenized equities are not available in every jurisdiction; eligibility is your responsibility and is separate from technical routing. V1 is non-custodial and every execution is user-signed. Overflow never holds a key and never trades unattended. Not investment advice.

@@ -49,7 +49,7 @@ export default function Receipt({ receipt }) {
           <Row k="Remaining source exposure"
                v={`${outputs.exposureAfter ?? inputs.remainingExposureDisplay ?? '-'} ${inputs.symbol ?? ''} ${verif.tone === 'preserved-yes' ? '✓' : ''}`}
                className={verif.tone === 'preserved-yes' ? 'preserved-yes' : (verif.tone === 'bad' ? 'bad' : '')} />
-          {verif.tone !== 'preserved-yes' && status === 'CONFIRMED' && (
+          {verif.tone !== 'preserved-yes' && status === 'CONFIRMED' && receipt.verification !== 'SEEDED' && (
             <div className="hint" style={{ marginTop: 2 }}>
               {verif.tone === 'bad' ? 'Preservation check failed' : VERIFYING_ONCHAIN_NOTICE}
             </div>
@@ -65,7 +65,9 @@ export default function Receipt({ receipt }) {
           <Row k="Destination" v={inputs.destinationSymbol ?? '-'} className="equity" />
           <Row k="Received" v={outputs.outputAmountResult ? formatRaw(outputs.outputAmountResult, inputs.destinationDecimals ?? 8, 8) : '-'} className="equity" />
           <Row k="Principal used to buy" v={verif.label} className={verif.tone} />
-          {verif.tone === 'warn' && <div className="hint" style={{ marginTop: 2 }}>{VERIFYING_ONCHAIN_NOTICE}</div>}
+          {verif.tone === 'warn' && receipt.verification !== 'SEEDED' && (
+            <div className="hint" style={{ marginTop: 2 }}>{VERIFYING_ONCHAIN_NOTICE}</div>
+          )}
         </>
       )}
 

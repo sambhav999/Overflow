@@ -9,7 +9,7 @@ import { clusterApiUrl } from '@solana/web3.js';
  * needed, so `wallets={[]}` below is intentional, not a placeholder.
  */
 export default function WalletContextProvider({ children }) {
-  const cluster = import.meta.env.VITE_SOLANA_CLUSTER === 'devnet' ? 'devnet' : 'mainnet-beta';
+  const cluster = import.meta.env.VITE_SOLANA_CLUSTER === 'mainnet' ? 'mainnet-beta' : 'devnet';
   const endpoint = useMemo(() => clusterApiUrl(cluster), [cluster]);
 
   return (

@@ -111,8 +111,11 @@ export function seedDemoData() {
     inputs,
     outputs,
     quote: null,
-    verification: 'VERIFIED_ON_CHAIN',
-    verificationNote: 'Settlement re-read from chain: principal floor intact, destination token increased by the settled amount.',
+    // SEEDED, never VERIFIED_ON_CHAIN -- this receipt never touched a chain.
+    // The numbers are real formula output (see comments above), but no
+    // devnet transaction backs it, so it must never claim a live proof did.
+    verification: 'SEEDED',
+    verificationNote: 'Seeded demo data: the floor/earnings math ran through the real preservation formula, but no transaction was submitted or verified on-chain.',
     preserved,
     proofs: outputs.proofs,
     destinationCategory: rule.destinationCategory,
@@ -230,8 +233,8 @@ export function seedDemoData() {
     inputs: dividendInputs,
     outputs: dividendOutputs,
     quote: null,
-    verification: 'VERIFIED_ON_CHAIN',
-    verificationNote: 'Settlement re-read from chain: source exposure preserved (remaining >= pre-event), destination USDC increased by the settled amount.',
+    verification: 'SEEDED',
+    verificationNote: 'Seeded demo data: run through the real dividend extraction formula, but no transaction was submitted or verified on-chain.',
     preserved: dividendPreserved,
     proofs: dividendOutputs.proofs,
     destinationCategory: dividendRule.destinationCategory,
@@ -243,5 +246,5 @@ export function seedDemoData() {
   const dividendSignature = signProof(JSON.stringify(buildProofPayload(dividendReceipt)));
   dividendReceipt = updateReceipt(dividendReceipt.id, { verifierSignature: dividendSignature, verifierPubkey: verifierPublicKey() });
 
-  console.log(`[demo] seeded 2 rules + 2 verified receipts for wallet ${DEMO_WALLET}`);
+  console.log(`[demo] seeded 2 rules + 2 SEEDED/DEMO receipts for wallet ${DEMO_WALLET}`);
 }

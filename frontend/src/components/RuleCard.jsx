@@ -8,10 +8,12 @@ import PrincipalFlow from './PrincipalFlow.jsx';
 import DriftNotice from './DriftNotice.jsx';
 import PreviewPanel from './PreviewPanel.jsx';
 import Receipt from './Receipt.jsx';
-import { IconVault, IconWallet } from './icons.jsx';
+import { IconVault, IconWallet, IconChevronDown } from './icons.jsx';
 import FirewallSummary from './FirewallSummary.jsx';
+import { statusBadgeText, statusBadgeClass, isTechnicalFailure } from '../lib/statusCopy.js';
 
 export default function RuleCard({ rule, connection, onChanged, onDeleted, totalInvestedAtomic = '0' }) {
+  const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [lastReceipt, setLastReceipt] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -48,9 +50,12 @@ export default function RuleCard({ rule, connection, onChanged, onDeleted, total
 
   const isDividend = rule.sourceType === 'XSTOCK_DIVIDEND';
 
+  const badgeText = statusBadgeText(status, evaluation.reason);
+  const badgeClass = statusBadgeClass(status, evaluation.reason);
+
   return (
     <div className="rule-card">
-      <div className="rule-head">
+      <button type="button" className="rule-head rule-head-toggle" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
         <div>
           <div className="rule-flow">
             <span className="rule-icon"><IconVault width={13} height={13} /></span>
@@ -62,15 +67,23 @@ export default function RuleCard({ rule, connection, onChanged, onDeleted, total
               {rule.destinationCategory === 'PRIVATE_MARKET' ? `PRIVATE · ${rule.destinationProvider}` : 'PUBLIC'}
             </span>
           </div>
-          <div className="eyebrow" style={{ marginTop: 4 }}>
-            {isDividend
-              ? 'Keeps pre-event equity exposure. Routes only dividend-created exposure.'
-              : 'Only value above the stored principal floor can move. The floor does not drift.'}
-          </div>
+          {expanded && (
+            <div className="eyebrow" style={{ marginTop: 4 }}>
+              {isDividend
+                ? 'Keeps pre-event equity exposure. Routes only dividend-created exposure.'
+                : 'Only value above the stored principal floor can move. The floor does not drift.'}
+            </div>
+          )}
         </div>
-        <span className={`status-badge status-${status}`}>{status}</span>
-      </div>
+        <span className={`status-badge status-${status} ${badgeClass}`}>{badgeText}</span>
+        <span className="rule-head-review">
+          {expanded ? 'Hide' : 'Review'}
+          <IconChevronDown width={12} height={12} className={expanded ? 'flip' : ''} />
+        </span>
+      </button>
 
+      {!expanded ? null : (
+      <>
       <FirewallSummary rule={rule} summary={evaluation.policySummary} />
 
       <div className="rule-meta">
@@ -107,7 +120,7 @@ export default function RuleCard({ rule, connection, onChanged, onDeleted, total
       {evaluation.needsBaselineReconfirm ? (
         <DriftNotice rule={rule} evaluation={evaluation} onChanged={onChanged} />
       ) : (
-        <div className={`notice ${noticeClass(status)}`}>{evaluation.reason}</div>
+        <div className={`notice ${noticeClass(status, evaluation.reason)}`}>{evaluation.reason}</div>
       )}
       <Guards guards={evaluation.guards} />
 
@@ -145,13 +158,15 @@ export default function RuleCard({ rule, connection, onChanged, onDeleted, total
         </button>
         <button className="btn small danger" onClick={remove} disabled={busy}>Delete</button>
       </div>
+      </>
+      )}
     </div>
   );
 }
 
-function noticeClass(status) {
+function noticeClass(status, reason) {
   if (status === 'READY') return 'ok';
-  if (status === 'BLOCKED') return 'bad';
+  if (status === 'BLOCKED') return isTechnicalFailure(reason) ? 'bad' : 'warn';
   if (status === 'NEEDS_REVIEW') return 'warn';
   return '';
 }

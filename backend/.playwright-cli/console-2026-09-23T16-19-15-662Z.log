@@ -1,0 +1,27 @@
+[    1354ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://localhost:5199/node_modules/.vite/deps/chunk-F34GCA6J.js?v=5f03fd39:21608
+[    1384ms] [WARNING] Module "buffer" has been externalized for browser compatibility. Cannot access "buffer.Buffer" in client code. See https://vite.dev/guide/troubleshooting.html#module-externalized-for-browser-compatibility for more details. @ http://localhost:5199/node_modules/.vite/deps/chunk-XH2EENG7.js?v=5f03fd39:1791
+[    1419ms] [INFO] [overflow] api:base {BASE: http://localhost:8798/api} @ http://localhost:5199/src/lib/trace.js:34
+[    2248ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/health, path: /health, hasSession: false} @ http://localhost:5199/src/lib/trace.js:34
+[    2249ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/assets/destinations, path: /assets/destinations, hasSession: false} @ http://localhost:5199/src/lib/trace.js:34
+[    2408ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/health, path: /health, hasSession: false} @ http://localhost:5199/src/lib/trace.js:34
+[    2409ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/assets/destinations, path: /assets/destinations, hasSession: false} @ http://localhost:5199/src/lib/trace.js:34
+[    3244ms] [INFO] [overflow] api:response {method: GET, path: /assets/destinations, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    3255ms] [INFO] [overflow] api:response {method: GET, path: /assets/destinations, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    3727ms] [INFO] [overflow] api:response {method: GET, path: /health, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    3728ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/demo/session, path: /demo/session, hasSession: false} @ http://localhost:5199/src/lib/trace.js:34
+[    3773ms] [INFO] [overflow] api:response {method: GET, path: /demo/session, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    3784ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/rules, path: /rules, hasSession: true} @ http://localhost:5199/src/lib/trace.js:34
+[    3785ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/receipts, path: /receipts, hasSession: true} @ http://localhost:5199/src/lib/trace.js:34
+[    3786ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/transactions, path: /transactions, hasSession: true} @ http://localhost:5199/src/lib/trace.js:34
+[    3894ms] [INFO] [overflow] api:response {method: GET, path: /receipts, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    3959ms] [INFO] [overflow] api:response {method: GET, path: /health, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    4900ms] [INFO] [overflow] api:response {method: GET, path: /transactions, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    6372ms] [INFO] [overflow] api:response {method: GET, path: /rules, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    6373ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/portfolio, path: /portfolio, hasSession: true} @ http://localhost:5199/src/lib/trace.js:34
+[    6374ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/decisions, path: /decisions, hasSession: true} @ http://localhost:5199/src/lib/trace.js:34
+[    6441ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/rules/09008062-4fad-4b13-a1bd-c74776b5c016/pending-funds, path: /rules/09008062-4fad-4b13-a1bd-c74776b5c016/pending-funds, hasSession: true} @ http://localhost:5199/src/lib/trace.js:34
+[    6442ms] [INFO] [overflow] api:request {method: GET, url: http://localhost:8798/api/rules/09008062-4fad-4b13-a1bd-c74776b5c016/pending-funds, path: /rules/09008062-4fad-4b13-a1bd-c74776b5c016/pending-funds, hasSession: true} @ http://localhost:5199/src/lib/trace.js:34
+[    6448ms] [INFO] [overflow] api:response {method: GET, path: /portfolio, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    6448ms] [INFO] [overflow] api:response {method: GET, path: /decisions, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    6486ms] [INFO] [overflow] api:response {method: GET, path: /rules/09008062-4fad-4b13-a1bd-c74776b5c016/pending-funds, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34
+[    6497ms] [INFO] [overflow] api:response {method: GET, path: /rules/09008062-4fad-4b13-a1bd-c74776b5c016/pending-funds, status: 200, ok: true, body: Object} @ http://localhost:5199/src/lib/trace.js:34

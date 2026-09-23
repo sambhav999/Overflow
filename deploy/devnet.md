@@ -8,7 +8,7 @@ That string goes on the **backend only**. The frontend does not need it. Phantom
 
 Vite inlines `VITE_*` at `npm run dev` / `npm run build`. Changing Render does not update the live UI. Rebuild the frontend after editing `frontend/.env`.
 
-Jupiter, Kamino, and xStocks are mainnet products. A full-devnet backend is for proving `create_rule` / `post_receipt`. Harvests may fail until you use `deploy/mainnet.md`.
+Jupiter, Kamino, and xStocks are mainnet products with no meaningful devnet liquidity. A full-devnet backend reliably proves `create_rule` / `post_receipt` on-chain; a live Kamino harvest or Jupiter swap against devnet may fail or return no route. This submission is devnet-only -- there is no mainnet deploy path in this repo.
 
 ## Commands to run (in order)
 

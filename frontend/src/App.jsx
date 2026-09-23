@@ -14,6 +14,7 @@ import TransactionLog from './components/TransactionLog.jsx';
 import Portfolio from './components/Portfolio.jsx';
 import IncomePortfolio from './components/IncomePortfolio.jsx';
 import FirewallDecisions from './components/FirewallDecisions.jsx';
+import StoryCards from './components/StoryCards.jsx';
 import { IconRules, IconPortfolio, IconFirewall, IconReceipts, IconReplay, IconMenu, IconClose, Mark } from './components/icons.jsx';
 import LiveBoard from './components/LiveBoard.jsx';
 import WebGLField from './components/WebGLField.jsx';
@@ -185,6 +186,7 @@ export default function App() {
   const [polling, setPolling] = useState(false);
   const [error, setError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [openStory, setOpenStory] = useState(null);
 
   useEffect(() => {
     api.health().then((h) => {
@@ -371,18 +373,20 @@ export default function App() {
         <Hero
           health={health}
           signedIn={signedIn}
-          onTryReplay={() => goTo('replay')}
+          onViewProof={() => setOpenStory('C')}
           onRegisterOnchain={startHeroRegistration}
           onConnectWallet={() => openWalletModal(true)}
         />
       )}
 
+      {tab === 'rules' && (
+        <div className="story-cards-wrap">
+          <StoryCards receipts={receipts} decisions={decisions} open={openStory} onOpen={setOpenStory} />
+          <LiveBoard variant="stream" showFlow />
+        </div>
+      )}
+
       <div className="wrap" id="main">
-        {health?.demoMode && (
-          <div className="demo-banner" role="status">
-            JUDGE DEMO MODE — in-memory data, real external APIs, fund-moving routes disabled
-          </div>
-        )}
         {error && <p className="page-status" role="status">{error}</p>}
 
       <div className="page" key={tab}>
@@ -609,8 +613,9 @@ function NavList({ items, tab, onSelect, className, label }) {
   );
 }
 
-function Hero({ health, signedIn, onTryReplay, onRegisterOnchain, onConnectWallet }) {
+function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWallet }) {
   const registryLive = Boolean(health?.registry?.configured);
+  const liveDevnet = Boolean(health && !health.demoMode && registryLive);
   return (
     <section className="hero">
       <div className="hero-copy">
@@ -618,39 +623,39 @@ function Hero({ health, signedIn, onTryReplay, onRegisterOnchain, onConnectWalle
           <span className="dot" aria-hidden="true" />
           {health ? `Live on ${health.network}` : 'Solana'}
         </span>
-        <h1 className="hero-title">Keep the stock.<br /><em>Program the dividend.</em></h1>
+        <h1 className="hero-title">Keep the source.<br /><em>Program the earnings.</em></h1>
         <p className="hero-sub">
-          Your stock or savings stay exactly where they are — Overflow never touches that principal.
-          Only the new profit they generate gets automatically invested, and only when the price is fair.
+          Only new earnings can move, only after you sign, and only inside your policy band.
         </p>
+
+        {health?.demoMode && (
+          <div className="demo-banner" role="status">JUDGE DEMO — seeded data, funds cannot move.</div>
+        )}
 
         <ul className="hero-stats">
           <li><span className="k">Protected Capital</span><span className="v locked">${HERO_STATS.protectedCapitalUsd}</span></li>
           <li><span className="k">Earnings Available</span><span className="v flow">${HERO_STATS.earningsAvailableUsd}</span></li>
           <li><span className="k">Destination</span><span className="v equity">{HERO_STATS.destination}</span></li>
           <li><span className="k">Firewall Status</span><span className="v preserved-yes">{HERO_STATS.firewallStatus}</span></li>
-          <li><span className="k">Principal Used</span><span className="v locked">$0.00</span></li>
         </ul>
+        <div className="hero-principal-used">
+          <span className="k">Principal Used</span>
+          <span className="v">$0.00</span>
+        </div>
         <p className="hero-stats-caption">A real example from below: $10,000 in Kamino USDC, its earnings routed to OpenAI stock.</p>
 
-        {signedIn ? (
-          <p className="hero-live-note">Signed in — this exact rule is live in your list below ↓</p>
-        ) : (
-          <div className="hero-cta">
-            {registryLive ? (
-              <button type="button" className="btn primary" onClick={onRegisterOnchain}>
-                Register this rule on Solana — free, devnet
-              </button>
-            ) : (
-              <button type="button" className="btn primary" onClick={onConnectWallet}>Connect wallet</button>
-            )}
-            <button type="button" className="btn ghost" onClick={onTryReplay}>
-              Try Replay — no wallet needed
+        <div className="hero-cta">
+          <button type="button" className="btn primary" onClick={onViewProof}>
+            View Proof of Preservation
+          </button>
+          {liveDevnet && (
+            <button type="button" className="btn ghost" onClick={registryLive ? onRegisterOnchain : onConnectWallet}>
+              Register this rule on Solana
             </button>
-          </div>
-        )}
+          )}
+        </div>
+        {signedIn && <p className="hero-live-note">Signed in — this exact rule is live in your list below ↓</p>}
       </div>
-      <LiveBoard variant="stream" showFlow />
     </section>
   );
 }

@@ -40,8 +40,11 @@ export function describeVerification(receipt = {}) {
   if (receipt.status !== 'CONFIRMED') {
     return { label: 'Not executed', tone: '' };
   }
+  if (receipt.verification === 'SEEDED') {
+    return { label: 'SEEDED / DEMO — not a live proof', tone: 'warn' };
+  }
   if (receipt.verification === 'VERIFIED_ON_CHAIN') {
-    return { label: '$0.00 ✓', tone: 'preserved-yes' };
+    return { label: '$0.00 ✓ verified on devnet', tone: 'preserved-yes' };
   }
   if (receipt.verification === 'FAILED') {
     return { label: 'Preservation check failed', tone: 'bad' };
