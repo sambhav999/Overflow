@@ -19,11 +19,45 @@ import { readPosition, buildDepositInstructions, buildWithdrawInstructions } fro
 import { buildUnsignedTransaction } from '../adapters/solana/transaction.js';
 import {
   sendRawTransactionBase64, confirmSignature, getTokenBalance, getSolBalanceLamports,
-  getAccountOwnerProgram, SYSTEM_PROGRAM, USDC_MINT,
+  getAccountOwnerProgram, SYSTEM_PROGRAM, USDC_MINT, transactionMessageHash,
 } from '../adapters/solana/rpc.js';
 import { updateRule } from '../db/rules.js';
 import { createReceipt } from '../db/receipts.js';
 import { recordStranded, totalStrandedAtomic, listStranded } from '../db/stranded.js';
+import { createIntent, getIntent, consumeIntent } from '../db/intents.js';
+
+/**
+ * Server-side execution binding, shared by deposit / harvest-withdraw /
+ * principal-withdraw. Mirrors execute.js's submitExecution exactly: the
+ * browser signs, so without this a client could submit ANY signed transaction
+ * alongside a forged `context` claiming it deposited or withdrew whatever
+ * amount it likes -- and the principal floor would move on that claim.
+ * Fail-closed: a missing or mismatched intent is refused, never waved through.
+ */
+function bindIntent({ intentId, rule, kind, signedTransaction }) {
+  if (!intentId) return { ok: false, reason: 'INTENT_REQUIRED', detail: 'No execution intent supplied. Prepare again; nothing was broadcast.' };
+  const intent = getIntent(intentId);
+  if (!intent) return { ok: false, reason: 'INTENT_NOT_FOUND', detail: 'The referenced execution intent does not exist. Nothing was broadcast.' };
+  if (intent.status !== 'OPEN') return { ok: false, reason: 'INTENT_NOT_OPEN', detail: `intent is ${intent.status}` };
+  if (intent.ruleId !== rule.id || intent.wallet !== rule.wallet) {
+    return { ok: false, reason: 'INTENT_MISMATCH', detail: 'intent does not belong to this rule and wallet' };
+  }
+  if (intent.kind !== kind) return { ok: false, reason: 'INTENT_MISMATCH', detail: `intent is a ${intent.kind}, not ${kind}` };
+  let signedHash;
+  try {
+    signedHash = transactionMessageHash(signedTransaction);
+  } catch (err) {
+    return { ok: false, reason: 'UNREADABLE_TRANSACTION', detail: err.message };
+  }
+  if (intent.messageHash && signedHash !== intent.messageHash) {
+    return {
+      ok: false,
+      reason: 'SIGNED_MESSAGE_MISMATCH',
+      detail: 'The signed transaction is not the transaction Overflow prepared. Nothing was broadcast.',
+    };
+  }
+  return { ok: true, intent };
+}
 
 /* ------------------------------------------------------------------ util -- */
 
@@ -123,23 +157,42 @@ export async function prepareDeposit({ rule, usdcAtomic }) {
     return { ok: false, reason: 'SIMULATION_FAILED', detail: JSON.stringify(built.simulation.err), logs: built.simulation.logs };
   }
 
+  const context = {
+    usdcAtomic: amount.toString(),
+    amountTokens,
+    vaultAddress,
+    groups,
+    redeemableBefore: before.redeemableAtomic,
+    floorBefore: rule.principalFloorAtomic ?? '0',
+  };
+  const intent = createIntent({
+    ruleId: rule.id,
+    wallet: rule.wallet,
+    kind: 'DEPOSIT',
+    stage: 'DEPOSIT',
+    executionKey: `deposit:${rule.id}:${Date.now()}`,
+    messageHash: transactionMessageHash(built.transaction),
+    authorisedRaw: amount.toString(),
+    sourceMint: USDC_MINT,
+    snapshot: context,
+  });
+
   return {
     ok: true,
     stage: 'DEPOSIT',
     transaction: built.transaction,
     simulation: built.simulation,
-    context: {
-      usdcAtomic: amount.toString(),
-      amountTokens,
-      vaultAddress,
-      groups,
-      redeemableBefore: before.redeemableAtomic,
-      floorBefore: rule.principalFloorAtomic ?? '0',
-    },
+    intentId: intent.id,
+    context,
   };
 }
 
-export async function submitDeposit({ rule, signedTransaction, context }) {
+export async function submitDeposit({ rule, signedTransaction, intentId }) {
+  const bound = bindIntent({ intentId, rule, kind: 'DEPOSIT', signedTransaction });
+  if (!bound.ok) return bound;
+  const { intent } = bound;
+  const context = intent.snapshot;
+
   const result = await broadcastAndConfirm(signedTransaction);
   const vaultAddress = context.vaultAddress;
 
@@ -155,7 +208,8 @@ export async function submitDeposit({ rule, signedTransaction, context }) {
 
   // Cross-check the confirmed transaction against the position it should have moved.
   const after = await readPosition({ owner: rule.wallet, vaultAddress });
-  const deposited = BigInt(context.usdcAtomic);
+  // Server-authorised amount from the intent, never the client's claim.
+  const deposited = BigInt(intent.authorisedRaw);
   const observedDelta = after.available && context.redeemableBefore != null
     ? BigInt(after.redeemableAtomic) - BigInt(context.redeemableBefore)
     : null;
@@ -184,6 +238,7 @@ export async function submitDeposit({ rule, signedTransaction, context }) {
       deltaVerified: !mismatch,
     },
   });
+  consumeIntent(intent.id);
 
   return {
     ok: true,
@@ -251,29 +306,48 @@ export async function prepareHarvestWithdrawal({ rule, harvestableAtomicValue })
 
   const walletUsdcBefore = await usdcBalance(rule.wallet);
 
+  const context = {
+    kind: 'HARVEST_WITHDRAW',
+    vaultAddress,
+    harvestableAtomic: amount.toString(),
+    sharesAtomic: sharesAtomic.toString(),
+    sharesTokens,
+    groups,
+    shareDecimals: position.shareDecimals,
+    exchangeRateScaled: position.exchangeRateScaled,
+    redeemableBefore: position.redeemableAtomic,
+    walletUsdcBefore: walletUsdcBefore.toString(),
+    principalFloorAtomic: rule.principalFloorAtomic ?? '0',
+    safetyBufferAtomic: buffer,
+  };
+  const intent = createIntent({
+    ruleId: rule.id,
+    wallet: rule.wallet,
+    kind: 'HARVEST_WITHDRAW',
+    stage: 'WITHDRAW',
+    executionKey: `harvest-withdraw:${rule.id}:${Date.now()}`,
+    messageHash: transactionMessageHash(built.transaction),
+    authorisedRaw: amount.toString(),
+    sourceMint: USDC_MINT,
+    snapshot: context,
+  });
+
   return {
     ok: true,
     stage: 'WITHDRAW',
     transaction: built.transaction,
     simulation: built.simulation,
-    context: {
-      kind: 'HARVEST_WITHDRAW',
-      vaultAddress,
-      harvestableAtomic: amount.toString(),
-      sharesAtomic: sharesAtomic.toString(),
-      sharesTokens,
-      groups,
-      shareDecimals: position.shareDecimals,
-      exchangeRateScaled: position.exchangeRateScaled,
-      redeemableBefore: position.redeemableAtomic,
-      walletUsdcBefore: walletUsdcBefore.toString(),
-      principalFloorAtomic: rule.principalFloorAtomic ?? '0',
-      safetyBufferAtomic: buffer,
-    },
+    intentId: intent.id,
+    context,
   };
 }
 
-export async function submitHarvestWithdrawal({ rule, signedTransaction, context }) {
+export async function submitHarvestWithdrawal({ rule, signedTransaction, intentId }) {
+  const bound = bindIntent({ intentId, rule, kind: 'HARVEST_WITHDRAW', signedTransaction });
+  if (!bound.ok) return bound;
+  const { intent } = bound;
+  const context = intent.snapshot;
+
   const result = await broadcastAndConfirm(signedTransaction);
   if (!result.ok) {
     createReceipt({
@@ -285,9 +359,11 @@ export async function submitHarvestWithdrawal({ rule, signedTransaction, context
   }
 
   // Measure what actually arrived rather than assuming the requested amount.
+  // Both sides of this fallback come from the server-authorised intent now,
+  // never from a client-supplied context.
   const walletUsdcAfter = await usdcBalance(rule.wallet);
   const received = walletUsdcAfter - BigInt(context.walletUsdcBefore);
-  const credited = received > 0n ? received : BigInt(context.harvestableAtomic);
+  const credited = received > 0n ? received : BigInt(intent.authorisedRaw);
 
   // The floor does not move on a harvest. Verify the position still covers it.
   const after = await readPosition({ owner: rule.wallet, vaultAddress: context.vaultAddress });
@@ -302,6 +378,7 @@ export async function submitHarvestWithdrawal({ rule, signedTransaction, context
     ruleId: rule.id, wallet: rule.wallet, mint: USDC_MINT,
     rawAtomic: credited.toString(), origin: 'WITHDRAWN_AWAITING_SWAP',
   });
+  consumeIntent(intent.id);
 
   return {
     ok: true,
@@ -365,11 +442,39 @@ export async function preparePrincipalWithdrawal({ rule, requestedAtomic }) {
 
   const walletUsdcBefore = await usdcBalance(rule.wallet);
 
+  const context = {
+    kind: 'PRINCIPAL_WITHDRAW',
+    vaultAddress,
+    requestedAtomic: amount.toString(),
+    sharesAtomic: sharesAtomic.toString(),
+    sharesTokens,
+    groups,
+    shareDecimals: position.shareDecimals,
+    exchangeRateScaled: position.exchangeRateScaled,
+    floorBefore: floor.toString(),
+    redeemableBefore: position.redeemableAtomic,
+    shortfallAtomic: plan.shortfallAtomic,
+    fullyReturnable: plan.fullyReturnable,
+    walletUsdcBefore: walletUsdcBefore.toString(),
+  };
+  const intent = createIntent({
+    ruleId: rule.id,
+    wallet: rule.wallet,
+    kind: 'PRINCIPAL_WITHDRAW',
+    stage: 'PRINCIPAL_WITHDRAW',
+    executionKey: `principal-withdraw:${rule.id}:${Date.now()}`,
+    messageHash: transactionMessageHash(built.transaction),
+    authorisedRaw: amount.toString(),
+    sourceMint: USDC_MINT,
+    snapshot: context,
+  });
+
   return {
     ok: true,
     stage: 'PRINCIPAL_WITHDRAW',
     transaction: built.transaction,
     simulation: built.simulation,
+    intentId: intent.id,
     // Surfaced verbatim so the UI cannot quietly present an impaired position
     // as a full return.
     plan: {
@@ -378,25 +483,16 @@ export async function preparePrincipalWithdrawal({ rule, requestedAtomic }) {
       shortfallAtomic: plan.shortfallAtomic,
       redeemableAtomic: position.redeemableAtomic,
     },
-    context: {
-      kind: 'PRINCIPAL_WITHDRAW',
-      vaultAddress,
-      requestedAtomic: amount.toString(),
-      sharesAtomic: sharesAtomic.toString(),
-      sharesTokens,
-      groups,
-      shareDecimals: position.shareDecimals,
-      exchangeRateScaled: position.exchangeRateScaled,
-      floorBefore: floor.toString(),
-      redeemableBefore: position.redeemableAtomic,
-      shortfallAtomic: plan.shortfallAtomic,
-      fullyReturnable: plan.fullyReturnable,
-      walletUsdcBefore: walletUsdcBefore.toString(),
-    },
+    context,
   };
 }
 
-export async function submitPrincipalWithdrawal({ rule, signedTransaction, context }) {
+export async function submitPrincipalWithdrawal({ rule, signedTransaction, intentId }) {
+  const bound = bindIntent({ intentId, rule, kind: 'PRINCIPAL_WITHDRAW', signedTransaction });
+  if (!bound.ok) return bound;
+  const { intent } = bound;
+  const context = intent.snapshot;
+
   const result = await broadcastAndConfirm(signedTransaction);
   if (!result.ok) {
     createReceipt({
@@ -410,9 +506,12 @@ export async function submitPrincipalWithdrawal({ rule, signedTransaction, conte
 
   const walletUsdcAfter = await usdcBalance(rule.wallet);
   const received = walletUsdcAfter - BigInt(context.walletUsdcBefore);
-  const returned = received > 0n ? received : BigInt(context.requestedAtomic);
+  const returned = received > 0n ? received : BigInt(intent.authorisedRaw);
 
-  const floorBefore = BigInt(context.floorBefore);
+  // Read fresh, not from the prepare-time snapshot: the floor is the thing
+  // every other guarantee rests on, so it must reflect the server's current
+  // stored value, never a client-supplied or possibly-stale figure.
+  const floorBefore = BigInt(rule.principalFloorAtomic ?? '0');
   const floorAfter = applyPrincipalWithdrawConfirmed(floorBefore, returned);
   updateRule(rule.id, { principalFloorAtomic: floorAfter.toString() });
 
@@ -432,6 +531,7 @@ export async function submitPrincipalWithdrawal({ rule, signedTransaction, conte
       fullyReturnable: context.fullyReturnable,
     },
   });
+  consumeIntent(intent.id);
 
   return {
     ok: true,

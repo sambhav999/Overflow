@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { randomUUID } from 'node:crypto';
-import { createRule, getRule, listRules, updateRule, deleteRule } from '../db/rules.js';
+import { createRule, getRule, listRules, updateRule } from '../db/rules.js';
 import { listReceipts, listReceiptsForRule, getReceipt, updateReceipt } from '../db/receipts.js';
 import { listSnapshots, getOpenSnapshotForRule } from '../db/snapshots.js';
 import { listStranded } from '../db/stranded.js';
@@ -39,6 +39,24 @@ const asyncRoute = (fn) => (req, res) => fn(req, res).catch((err) => {
 });
 
 /**
+ * Shared by create and patch, so the Capital Firewall band can never be
+ * validated one way at creation and a looser (or no) way on edit.
+ * Returns an error string, or null when the band is valid.
+ */
+function validateGuardBand(guardMode, maxBps, minBps) {
+  if (!GUARD_MODES.includes(guardMode)) return `marketGuardMode must be one of ${GUARD_MODES.join(', ')}`;
+  if (guardMode !== 'NONE') {
+    if (maxBps === null || !Number.isInteger(maxBps) || maxBps < -5000 || maxBps > 10000) {
+      return 'maxPremiumBps must be an integer between -5000 and 10000 when the firewall is on';
+    }
+    if (minBps !== null && (!Number.isInteger(minBps) || minBps < -5000 || minBps > maxBps)) {
+      return 'minPremiumBps must be an integer between -5000 and maxPremiumBps';
+    }
+  }
+  return null;
+}
+
+/**
  * The wallet an endpoint acts for comes ONLY from a verified session. It was
  * previously read from `?wallet=`, which let anyone read, create or delete any
  * wallet's rules.
@@ -59,9 +77,17 @@ function ownedRule(req, res) {
 
 /**
  * Judge Demo Mode fail-closed guard. Placed at the top of every route that
- * broadcasts a signed transaction, so a judge running the seeded in-memory
- * demo can review the whole flow up to signing but can never actually move
- * funds. Returns true (and has already responded) if the request was blocked.
+ * broadcasts a signed FUND-MOVING transaction (a harvest swap, a Kamino
+ * deposit/withdrawal), so a judge running the seeded in-memory demo can
+ * review the whole flow up to signing but can never actually move funds.
+ *
+ * Deliberately NOT placed on the registry routes (/onchain/submit) -- those
+ * only write a PDA (rent paid by the signer, standard account creation; see
+ * programs/overflow-registry/src/lib.rs) and never move product funds, so a
+ * real connected wallet can still register the hero rule on-chain for real
+ * even while demo mode protects everyone from an actual swap.
+ *
+ * Returns true (and has already responded) if the request was blocked.
  */
 function blockedInDemoMode(res) {
   if (process.env.DEMO_MODE !== 'true') return false;
@@ -73,7 +99,19 @@ function blockedInDemoMode(res) {
 }
 
 router.get('/health', asyncRoute(async (_req, res) => {
-  const [slot, kamino] = await Promise.all([getSlot().catch(() => null), sdkStatus()]);
+  const demoMode = process.env.DEMO_MODE === 'true';
+  const [slot, kamino] = await Promise.all([getSlot().catch(() => null), sdkStatus().catch((err) => ({ available: false, error: err.message }))]);
+  // Only computed in demo mode, and never allowed to fail the health check --
+  // a judge deployment reporting 500 because a demo-only readout hiccuped
+  // would defeat the entire point of this endpoint.
+  let seeded = null;
+  if (demoMode) {
+    try {
+      seeded = { rules: listRules(DEMO_WALLET).length, receipts: listReceipts(DEMO_WALLET).length };
+    } catch (err) {
+      seeded = { error: err.message };
+    }
+  }
   res.json({
     ok: true,
     slot,
@@ -177,17 +215,10 @@ router.post('/rules', asyncRoute(async (req, res) => {
   const provider = String(b.destinationProvider || 'XSTOCKS').toUpperCase();
   if (!PROVIDERS.includes(provider)) return res.status(400).json({ error: `unknown destination provider ${provider}` });
   const guardMode = String(b.marketGuardMode || 'NONE').toUpperCase();
-  if (!GUARD_MODES.includes(guardMode)) return res.status(400).json({ error: `marketGuardMode must be one of ${GUARD_MODES.join(', ')}` });
   const maxBps = b.maxPremiumBps === undefined || b.maxPremiumBps === null || b.maxPremiumBps === '' ? null : Number(b.maxPremiumBps);
   const minBps = b.minPremiumBps === undefined || b.minPremiumBps === null || b.minPremiumBps === '' ? null : Number(b.minPremiumBps);
-  if (guardMode !== 'NONE') {
-    if (maxBps === null || !Number.isInteger(maxBps) || maxBps < -5000 || maxBps > 10000) {
-      return res.status(400).json({ error: 'maxPremiumBps must be an integer between -5000 and 10000 when the firewall is on' });
-    }
-    if (minBps !== null && (!Number.isInteger(minBps) || minBps < -5000 || minBps > maxBps)) {
-      return res.status(400).json({ error: 'minPremiumBps must be an integer between -5000 and maxPremiumBps' });
-    }
-  }
+  const bandError = validateGuardBand(guardMode, maxBps, minBps);
+  if (bandError) return res.status(400).json({ error: bandError });
 
   // A source that cannot be routed can never execute, so it is refused at
   // creation -- but only on a CONFIRMED lack of route. An unverified check
@@ -291,14 +322,66 @@ router.get('/rules/:id', asyncRoute(async (req, res) => {
   });
 }));
 
+/**
+ * Explicit allowlist, never a pass-through of req.body. Everything else a
+ * client might send -- principalFloorAtomic, destinationMint, sourceMint,
+ * accounting state, execution/receipt history -- is silently ignored here,
+ * not written. Those fields stay reachable only from trusted server code
+ * (kaminoFlows.js's confirmed-floor updates, the registry's onchain PDA
+ * writes), never from a raw client PATCH.
+ */
 router.patch('/rules/:id', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
-  res.json({ rule: updateRule(req.params.id, req.body || {}) });
+  const b = req.body || {};
+  const patch = {};
+
+  if (b.status !== undefined) {
+    const status = String(b.status).toUpperCase();
+    if (!['ACTIVE', 'PAUSED', 'ARCHIVED'].includes(status)) {
+      return res.status(400).json({ error: 'status must be one of ACTIVE, PAUSED, ARCHIVED' });
+    }
+    patch.status = status;
+  }
+  if (b.pauseReason !== undefined) patch.pauseReason = b.pauseReason === null ? null : String(b.pauseReason).slice(0, 500);
+  if (b.minExecutionUsdAtomic !== undefined) patch.minExecutionUsdAtomic = String(b.minExecutionUsdAtomic);
+  if (b.maxSlippageBps !== undefined) patch.maxSlippageBps = Number(b.maxSlippageBps);
+  if (b.maxPriceImpactBps !== undefined) patch.maxPriceImpactBps = Number(b.maxPriceImpactBps);
+  if (b.allowOvernight !== undefined) patch.allowOvernight = Boolean(b.allowOvernight);
+
+  // The Capital Firewall band is validated as a whole, using the rule's
+  // current values for any field this request does not touch, so a partial
+  // edit can never leave the band internally inconsistent.
+  if (b.marketGuardMode !== undefined || b.maxPremiumBps !== undefined || b.minPremiumBps !== undefined) {
+    const guardMode = b.marketGuardMode !== undefined ? String(b.marketGuardMode).toUpperCase() : (rule.marketGuardMode ?? 'NONE');
+    const maxBps = b.maxPremiumBps !== undefined
+      ? (b.maxPremiumBps === null || b.maxPremiumBps === '' ? null : Number(b.maxPremiumBps))
+      : rule.maxPremiumBps;
+    const minBps = b.minPremiumBps !== undefined
+      ? (b.minPremiumBps === null || b.minPremiumBps === '' ? null : Number(b.minPremiumBps))
+      : rule.minPremiumBps;
+    const bandError = validateGuardBand(guardMode, maxBps, minBps);
+    if (bandError) return res.status(400).json({ error: bandError });
+    patch.marketGuardMode = guardMode;
+    patch.maxPremiumBps = guardMode === 'NONE' ? null : maxBps;
+    patch.minPremiumBps = guardMode === 'NONE' ? null : minBps;
+  }
+
+  if (!Object.keys(patch).length) return res.status(400).json({ error: 'no recognised fields to update' });
+  res.json({ rule: updateRule(rule.id, patch) });
 }));
 
+/**
+ * Archived, never deleted. snapshots/receipts/stranded_funds/execution_intents/
+ * policy_decisions all reference rules(id) ON DELETE CASCADE (db/index.js) with
+ * foreign_keys enforcement on -- a hard delete here would silently destroy the
+ * entire Proof of Preservation history for this rule. Same response shape the
+ * frontend already expects ({ deleted: true }); it locally filters the rule
+ * out of its list either way.
+ */
 router.delete('/rules/:id', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
-  res.json({ deleted: deleteRule(rule.id) });
+  const archived = updateRule(rule.id, { status: 'ARCHIVED', pauseReason: null });
+  res.json({ deleted: true, rule: archived });
 }));
 
 router.get('/rules/:id/evaluate', asyncRoute(async (req, res) => {
@@ -340,7 +423,6 @@ router.post('/rules/:id/submit', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/onchain/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
-  if (blockedInDemoMode(res)) return;
   const { signedTransaction } = req.body || {};
   if (!signedTransaction) return res.status(400).json({ error: 'signedTransaction is required' });
   const submitted = await submitRegistryTx({ signedTransaction });
@@ -362,7 +444,6 @@ router.post('/rules/:id/onchain/submit', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/receipts/:receiptId/onchain/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
-  if (blockedInDemoMode(res)) return;
   const receipt = getReceipt(req.params.receiptId);
   if (!receipt || receipt.ruleId !== rule.id || receipt.wallet !== rule.wallet) {
     return res.status(404).json({ error: 'receipt not found' });
@@ -421,9 +502,9 @@ router.post('/rules/:id/deposit', asyncRoute(async (req, res) => {
 router.post('/rules/:id/deposit/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
   if (blockedInDemoMode(res)) return;
-  const { signedTransaction, context } = req.body || {};
-  if (!signedTransaction || !context) return res.status(400).json({ error: 'signedTransaction and context are required' });
-  const result = await submitDeposit({ rule, signedTransaction, context });
+  const { signedTransaction, intentId } = req.body || {};
+  if (!signedTransaction || !intentId) return res.status(400).json({ error: 'signedTransaction and intentId are required' });
+  const result = await submitDeposit({ rule, signedTransaction, intentId });
   res.status(result.ok ? 200 : 409).json(result);
 }));
 
@@ -436,9 +517,9 @@ router.post('/rules/:id/deposit/submit', asyncRoute(async (req, res) => {
 router.post('/rules/:id/harvest/withdraw/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
   if (blockedInDemoMode(res)) return;
-  const { signedTransaction, context } = req.body || {};
-  if (!signedTransaction || !context) return res.status(400).json({ error: 'signedTransaction and context are required' });
-  const result = await submitHarvestWithdrawal({ rule, signedTransaction, context });
+  const { signedTransaction, intentId } = req.body || {};
+  if (!signedTransaction || !intentId) return res.status(400).json({ error: 'signedTransaction and intentId are required' });
+  const result = await submitHarvestWithdrawal({ rule, signedTransaction, intentId });
   res.status(result.ok ? 200 : 409).json(result);
 }));
 
@@ -457,9 +538,9 @@ router.post('/rules/:id/withdraw-principal', asyncRoute(async (req, res) => {
 router.post('/rules/:id/withdraw-principal/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
   if (blockedInDemoMode(res)) return;
-  const { signedTransaction, context } = req.body || {};
-  if (!signedTransaction || !context) return res.status(400).json({ error: 'signedTransaction and context are required' });
-  const result = await submitPrincipalWithdrawal({ rule, signedTransaction, context });
+  const { signedTransaction, intentId } = req.body || {};
+  if (!signedTransaction || !intentId) return res.status(400).json({ error: 'signedTransaction and intentId are required' });
+  const result = await submitPrincipalWithdrawal({ rule, signedTransaction, intentId });
   res.status(result.ok ? 200 : 409).json(result);
 }));
 

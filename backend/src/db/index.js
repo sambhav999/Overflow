@@ -49,7 +49,7 @@ function migrate(d) {
       max_slippage_bps INTEGER NOT NULL,
       max_price_impact_bps INTEGER NOT NULL DEFAULT 100,
       allow_overnight INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL,               -- ACTIVE | PAUSED
+      status TEXT NOT NULL,               -- ACTIVE | PAUSED | ARCHIVED
       principal_floor_atomic TEXT,        -- Kamino only
       principal_floor_source TEXT,        -- DEPOSIT_CONFIRMED | USER_CONFIRMED
       safety_buffer_atomic TEXT,
@@ -119,8 +119,8 @@ function migrate(d) {
       id TEXT PRIMARY KEY,
       rule_id TEXT NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
       wallet TEXT NOT NULL,
-      kind TEXT NOT NULL,                 -- DIVIDEND | INTEREST
-      stage TEXT NOT NULL,                -- WITHDRAW | SWAP | DONE
+      kind TEXT NOT NULL,                 -- DIVIDEND | INTEREST | DEPOSIT | HARVEST_WITHDRAW | PRINCIPAL_WITHDRAW
+      stage TEXT NOT NULL,                -- WITHDRAW | SWAP | DEPOSIT | PRINCIPAL_WITHDRAW | DONE
       execution_key TEXT NOT NULL,
       -- SHA-256 of the MESSAGE bytes of the transaction we prepared. A signed
       -- transaction whose message differs is refused before broadcast.

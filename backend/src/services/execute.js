@@ -116,6 +116,7 @@ export async function prepareExecution(rule) {
         stage: 'WITHDRAW',
         transaction: withdrawal.transaction,
         simulation: withdrawal.simulation,
+        intentId: withdrawal.intentId,
         context: withdrawal.context,
         evaluation,
         note: 'Step 1 of 2: withdraw earnings from Kamino. The swap is signed separately once this confirms.',

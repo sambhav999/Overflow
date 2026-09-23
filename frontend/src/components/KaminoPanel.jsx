@@ -43,7 +43,9 @@ export default function KaminoPanel({ rule, connection, onChanged }) {
       account: connection.account,
       transactionBase64: prepared.transaction,
     });
-    return submitFn({ signedTransaction: signed, context: prepared.context });
+    // The server checks the signed message against the intent it recorded at
+    // prepare time; it does not trust anything else sent here.
+    return submitFn({ signedTransaction: signed, intentId: prepared.intentId });
   }
 
   async function handleDeposit() {

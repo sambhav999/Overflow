@@ -57,7 +57,9 @@ export default function ReadyPanel({ rule, evaluation, connection, onExecuted })
       if (prepared.stage === 'WITHDRAW') {
         const out = await api.harvestWithdrawSubmit(rule.id, {
           signedTransaction: signed,
-          context: prepared.context,
+          // The server checks this against the intent it recorded at prepare
+          // time; it does not trust a client-supplied context for accounting.
+          intentId: prepared.intentId,
         });
         setWithdrawSignature(out.signature);
         if (out.floorWarning) setError(out.floorWarning);

@@ -41,8 +41,12 @@ export function getRule(id) {
   return row ? hydrate(row) : null;
 }
 
+/** Archived rules are excluded -- same visible effect a hard delete used to
+ *  have, without destroying the row or anything that references it. */
 export function listRules(wallet) {
-  const rows = getDb().prepare(`SELECT ${COLUMNS} FROM rules WHERE wallet = ? ORDER BY created_at DESC`).all(wallet);
+  const rows = getDb().prepare(
+    `SELECT ${COLUMNS} FROM rules WHERE wallet = ? AND status != 'ARCHIVED' ORDER BY created_at DESC`
+  ).all(wallet);
   return rows.map(hydrate);
 }
 
@@ -91,10 +95,6 @@ export function updateRule(id, patch) {
   values.push(nowIso(), id);
   db.prepare(`UPDATE rules SET ${sets.join(', ')} WHERE id = ?`).run(...values);
   return getRule(id);
-}
-
-export function deleteRule(id) {
-  return getDb().prepare('DELETE FROM rules WHERE id = ?').run(id).changes > 0;
 }
 
 function hydrate(row) {
