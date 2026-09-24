@@ -43,6 +43,9 @@ export function describeVerification(receipt = {}) {
   if (receipt.verification === 'SEEDED') {
     return { label: 'SEEDED DEMO', tone: 'warn' };
   }
+  if (receipt.verification === 'DEVNET_TX') {
+    return { label: '$0.00 ✓ Solana devnet', tone: 'preserved-yes' };
+  }
   if (receipt.verification === 'VERIFIED_ON_CHAIN') {
     return { label: '$0.00 ✓ verified on devnet', tone: 'preserved-yes' };
   }

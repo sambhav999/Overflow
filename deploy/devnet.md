@@ -59,7 +59,7 @@ After step 6 succeeds, add the env values below to `backend/.env` and `frontend/
 | Local backend | `backend/.env` |
 | Render backend | Render → Environment |
 | Local frontend | `frontend/.env` then restart Vite |
-| Live frontend | `frontend/.env` then rebuild / redeploy Workers |
+| Live frontend | `frontend/.env` then rebuild / redeploy Netlify |
 | Solana CLI deployer | `~/.config/solana/id.json` (not an env var, not Phantom) |
 
 ## Must add — backend (`backend/.env` and Render)
@@ -69,7 +69,7 @@ OVERFLOW_REGISTRY_PROGRAM_ID=nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp
 NETWORK=devnet
 SOLANA_RPC_URL=https://api.devnet.solana.com
 DEMO_MODE=true
-CORS_ORIGIN=http://localhost:5173,https://noisy-sky-fa9c.rj838486.workers.dev
+CORS_ORIGIN=http://localhost:5173,https://overflow-solana.netlify.app
 SESSION_SECRET=
 ```
 

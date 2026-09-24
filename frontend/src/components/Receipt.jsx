@@ -3,6 +3,7 @@ import { formatRaw, formatUsd, formatDateTime, explorerUrl, shortAddress } from 
 import { api } from '../lib/api.js';
 import { describeVerification, VERIFYING_ONCHAIN_NOTICE } from '../lib/firewallCopy.js';
 import Verdict from './Verdict.jsx';
+import ProofBadges from './ProofBadges.jsx';
 
 /**
  * Proof of Preservation. It shows the inputs the decision was made on, the
@@ -26,8 +27,10 @@ export default function Receipt({ receipt }) {
       <div className="receipt-title">
         PROOF OF PRESERVATION — {isDividend ? 'DIVIDEND RULE' : 'INTEREST RULE'} · {status}
         {(mode === 'DEMO' || receipt.verification === 'SEEDED') && ' · SEEDED DEMO'}
+        {mode === 'DEVNET' && ' · SOLANA DEVNET'}
         {mode === 'REPLAY' && ' · REPLAY'}
       </div>
+      {outputs.devnet && <DevnetProof receipt={receipt} />}
       <Verdict
         verification={receipt.verification}
         note={receipt.verificationNote}
@@ -98,6 +101,33 @@ export default function Receipt({ receipt }) {
         </div>
       )}
       {status === 'CONFIRMED' && <ProofDownload receipt={receipt} />}
+    </div>
+  );
+}
+
+/**
+ * The Judge Demo's end state, stated as numbers, with a Solscan link for every
+ * real devnet transaction behind it.
+ */
+function DevnetProof({ receipt }) {
+  const { inputs = {}, outputs = {} } = receipt;
+  const dev = outputs.devnet;
+  return (
+    <div className="devnet-proof">
+      <ProofBadges />
+      <div style={{ marginTop: 10 }}>
+        <Row k="Protected source" v={`${formatUsd(inputs.principalFloorAtomic)} · untouched`} className="locked" />
+        <Row k="Earnings deployed" v={formatUsd(inputs.harvestableAtomic)} className="equity" />
+        <Row k="Protected capital consumed" v={receipt.preserved === true ? `${formatUsd('0')} ✓` : 'NOT VERIFIED'} className={receipt.preserved === true ? 'preserved-yes' : 'bad'} />
+        <Row k="Rule / receipt" v="Solana Devnet ✓" className="preserved-yes" />
+        <Row k="Destination" v={inputs.destinationSymbol} className="equity" />
+        <Row k="Settled via" v={dev.adapter} />
+        {dev.transactions.map((t) => (
+          <Row key={t.signature} k={t.label}
+               v={<a href={explorerUrl(t.signature)} target="_blank" rel="noreferrer">{shortAddress(t.signature, 8)} ↗</a>} />
+        ))}
+      </div>
+      <hr />
     </div>
   );
 }

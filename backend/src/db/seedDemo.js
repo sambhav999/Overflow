@@ -21,6 +21,12 @@ import { buildProofPayload } from '../services/proof.js';
 import { principalPreserved } from '../services/verify.js';
 import { extractDividend, assertSourcePreserved, dividendPlausibilityCheck } from '../core/dividend.js';
 import { classifyCorporateAction } from '../adapters/xstocks/corporateActions.js';
+import { usdToUsdcAtomic } from '../core/units.js';
+import DEVNET from './devnetJudgeExecution.json' with { type: 'json' };
+
+// The hero rule's real devnet registry transactions (README "Proof").
+const REGISTRY_CREATE_RULE_SIG = 'NNAYBVJbiaYQjFZ7JF4J9kLBfY6Sq6hj3dhKKqWBdyGxb6kU9Xy5X5DZjUzEbTKZVhRrowsA2bcuVbH4AnMbmLT';
+const REGISTRY_POST_RECEIPT_SIG = '4bVHYZfUyku39w3JbEduqHiAyD9sWLUrceWcKJJFKprFaZjL8M334DZXsakn7GEEutAnFCts6WunZVrKUSLSWEa2';
 
 /** Real KLACx 10:1 split from xStocks history. Seeded so Story B never calls that API. */
 const KLACX_SPLIT_10_1 = { before: '1.000892302917', after: '10.00892302917' };
@@ -110,9 +116,13 @@ export function seedDemoData() {
   });
 
   const executionKey = `demo-seed-${rule.id}`;
-  const harvestedAtomic = '186400000'; // $186.40 harvested above the floor
-  const receivedRaw = '9820000'; // 0.0982 OPENAI (8dp)
-  const redeemableAfterAtomic = '10000000000';
+  // Real devnet movement (scripts/devnet-judge-execution.mjs): 186.40 TEST USDC
+  // moved to the PreStocks Devnet/Judge Adapter, OAIx-DEMO issued back, and the
+  // 10,000 TEST USDC principal re-read afterwards. Amounts below come from that
+  // run's recorded output, not from constants chosen here.
+  const harvestedAtomic = DEVNET.amounts.earningsAtomic; // 186.40 TEST USDC
+  const receivedRaw = DEVNET.amounts.oaixDemoRaw; // OAIx-DEMO, 8dp
+  const redeemableAfterAtomic = usdToUsdcAtomic(DEVNET.after.userTestUsdc);
 
   // The same invariant a real settlement is checked against: does the
   // redeemable position still cover the floor. Derived, not asserted.
@@ -123,11 +133,11 @@ export function seedDemoData() {
     redeemableAtomic: '10186400000',
     safetyBufferAtomic: rule.safetyBufferAtomic,
     harvestableAtomic: harvestedAtomic,
-    destinationSymbol: 'OpenAI PreStocks',
-    destinationDecimals: rule.destinationDecimals,
+    sourceSymbol: 'TEST USDC',
+    destinationSymbol: `${DEVNET.adapter.assetSymbol} (${DEVNET.adapter.underlying})`,
+    destinationDecimals: DEVNET.adapter.assetDecimals,
   };
   const outputs = {
-    jupiterStatus: 'Success',
     outputAmountResult: receivedRaw,
     principalFloorAtomic: rule.principalFloorAtomic,
     redeemableAfterAtomic,
@@ -141,52 +151,61 @@ export function seedDemoData() {
       destinationIncreased: true,
       floorStillCovered: preserved,
     },
+    devnet: {
+      cluster: DEVNET.cluster,
+      adapter: DEVNET.adapter.label,
+      judgeUser: DEVNET.judgeUser,
+      mints: DEVNET.mints,
+      principalAfterTestUsdc: DEVNET.after.userTestUsdc,
+      transactions: [
+        { label: '186.40 TEST USDC → adapter', signature: DEVNET.signatures.transfer },
+        { label: `${DEVNET.adapter.assetSymbol} allocation`, signature: DEVNET.signatures.allocation },
+        { label: 'Registry create_rule', signature: REGISTRY_CREATE_RULE_SIG },
+        { label: 'Registry post_receipt', signature: REGISTRY_POST_RECEIPT_SIG },
+      ],
+    },
   };
 
   let receipt = createReceipt({
     ruleId: rule.id,
     wallet: DEMO_WALLET,
     kind: 'INTEREST',
-    mode: 'DEMO',
+    mode: 'DEVNET',
     status: 'CONFIRMED',
     executionKey,
-    // No signature: this receipt is seeded, not a real chain event. A fabricated
-    // look-alike here would render as a live Solscan link that 404s -- see
-    // Receipt.jsx, which already falls back cleanly when signature is null.
-    signature: null,
+    signature: DEVNET.signatures.transfer,
     slot: null,
     inputs,
     outputs,
     quote: null,
-    // SEEDED, never VERIFIED_ON_CHAIN -- this receipt never touched a chain.
-    // The numbers are real formula output (see comments above), but no
-    // devnet transaction backs it, so it must never claim a live proof did.
-    verification: 'SEEDED',
-    verificationNote: 'SEEDED DEMO: the floor/earnings math ran through the real preservation formula. No transaction was submitted or verified on-chain.',
+    // DEVNET_TX, not VERIFIED_ON_CHAIN: the transactions are real and on
+    // devnet, but the market input is deterministic and the destination is
+    // the Devnet/Judge Adapter, not the production PreStocks contract.
+    verification: 'DEVNET_TX',
+    verificationNote: `REAL DEVNET TX: 186.40 TEST USDC moved on Solana devnet and ${DEVNET.after.userTestUsdc} TEST USDC principal re-read untouched. Market input is deterministic via the ${DEVNET.adapter.label} -- not the production PreStocks contract.`,
     preserved,
     proofs: outputs.proofs,
     destinationCategory: rule.destinationCategory,
-    destinationSymbol: rule.destinationSymbol,
+    destinationSymbol: DEVNET.adapter.assetSymbol,
     earningsUsdAtomic: harvestedAtomic,
     policyHash: computePolicyHash(rule),
   });
 
   const signature = signProof(JSON.stringify(buildProofPayload(receipt)));
-  receipt = updateReceipt(receipt.id, { verifierSignature: signature, verifierPubkey: verifierPublicKey() });
+  receipt = updateReceipt(receipt.id, {
+    verifierSignature: signature,
+    verifierPubkey: verifierPublicKey(),
+    onchainSignature: REGISTRY_POST_RECEIPT_SIG,
+  });
 
-  // The Capital Firewall decision this harvest actually passed. Never
-  // seeded before, which left the Firewall tab empty for the one story that
-  // is supposed to demonstrate it. Illustrative prices (real OpenAI PreStocks
-  // pricing runs well outside this rule's -300/+150 bps band right now, which
-  // would BLOCK, not PASS -- these are chosen to be internally consistent
-  // with the CONFIRMED receipt above, same honesty standard as its figures),
-  // through the real recordDecision helper, in the same shape runFirewall
-  // produces (see backend/src/services/firewall.js).
+  // The Capital Firewall decision this allocation passed, on the adapter's
+  // deterministic OpenAI PreStocks pricing, through the real recordDecision
+  // helper in the same shape runFirewall produces.
   recordDecision({
     wallet: DEMO_WALLET,
     ruleId: rule.id,
     intentKey: executionKey,
-    destinationSymbol: rule.destinationSymbol,
+    destinationSymbol: DEVNET.adapter.assetSymbol,
     destinationProvider: rule.destinationProvider,
     destinationCategory: rule.destinationCategory,
     outcome: 'PASSED',
@@ -195,15 +214,15 @@ export function seedDemoData() {
       mode: 'TOKEN_PREMIUM',
       decision: 'PASS',
       breach: null,
-      reason: 'Premium 100 bps is inside the policy band [-300, 150] bps.',
-      premiumBps: 100,
+      reason: `Premium ${DEVNET.adapter.premiumBps} bps is inside the policy band [${rule.minPremiumBps}, ${rule.maxPremiumBps}] bps.`,
+      premiumBps: DEVNET.adapter.premiumBps,
       maxPremiumBps: rule.maxPremiumBps,
       minPremiumBps: rule.minPremiumBps,
-      referencePriceUsd: '1000.0000',
-      referenceSource: 'PRESTOCKS mark',
-      tokenPriceUsd: '1010.0000',
-      tokenSource: 'Jupiter executable quote (×1.486 scaled UI multiplier applied)',
-      destinationMint: OPENAI_PRESTOCKS_MINT,
+      referencePriceUsd: DEVNET.adapter.referencePriceUsd,
+      referenceSource: 'deterministic',
+      tokenPriceUsd: DEVNET.adapter.executionPriceUsd,
+      tokenSource: 'Devnet/Judge Adapter',
+      destinationMint: DEVNET.mints.oaixDemo,
       amountAtomic: harvestedAtomic,
       countsAsRetained: false,
       checkedAt: new Date().toISOString(),
@@ -296,5 +315,5 @@ export function seedDemoData() {
   // Story B: blocked evaluation only. Never a receipt. Never an xStocks fetch.
   klacxEvaluation = buildKlacxBlockedEvaluation();
 
-  console.log(`[demo] seeded 2 rules + 2 SEEDED DEMO receipts + KLACx blocked evaluation for wallet ${DEMO_WALLET}`);
+  console.log(`[demo] seeded 2 rules + 1 devnet receipt + 1 SEEDED DEMO receipt + KLACx blocked evaluation for wallet ${DEMO_WALLET}`);
 }

@@ -32,16 +32,29 @@ test('KLACx 10:1 is a blocked evaluation from the real classifiers, with no rece
 
   const receipts = listReceipts(DEMO_WALLET);
   assert.equal(receipts.length, 2);
-  assert.ok(receipts.every((r) => r.mode === 'DEMO'));
-  assert.ok(receipts.every((r) => r.verification === 'SEEDED'));
-  assert.ok(receipts.every((r) => r.signature == null));
   assert.ok(!receipts.some((r) => /KLAC/i.test(r.inputs?.symbol || '')));
+  assert.ok(receipts.every((r) => r.verification !== 'VERIFIED_ON_CHAIN' && r.mode !== 'LIVE'));
 
+  // Story A stays seeded: no chain transaction, so no signature.
+  const dividend = receipts.find((r) => r.kind === 'DIVIDEND');
+  assert.equal(dividend.mode, 'DEMO');
+  assert.equal(dividend.verification, 'SEEDED');
+  assert.equal(dividend.signature, null);
+  assert.equal(buildProofPayload(dividend).label, 'SEEDED DEMO');
+
+  // Story C is backed by the real devnet run: 186.40 TEST USDC moved, 10,000 untouched.
   const interest = receipts.find((r) => r.kind === 'INTEREST');
-  assert.equal(interest.inputs.destinationSymbol, 'OpenAI PreStocks');
+  assert.equal(interest.mode, 'DEVNET');
+  assert.equal(interest.verification, 'DEVNET_TX');
+  assert.ok(interest.signature);
+  assert.equal(interest.inputs.harvestableAtomic, '186400000');
+  assert.equal(interest.outputs.devnet.principalAfterTestUsdc, '10000');
+  assert.equal(interest.preserved, true);
+  assert.match(interest.inputs.destinationSymbol, /^OAIx-DEMO/);
   const proof = buildProofPayload(interest);
-  assert.equal(proof.mode, 'DEMO');
-  assert.equal(proof.label, 'SEEDED DEMO');
+  assert.equal(proof.mode, 'DEVNET');
+  assert.equal(proof.label, undefined);
+  assert.equal(proof.protectedCapitalConsumedAtomic, '0');
 
   assert.equal(listRules(DEMO_WALLET).length, 2);
 });

@@ -15,6 +15,7 @@ import Portfolio from './components/Portfolio.jsx';
 import IncomePortfolio from './components/IncomePortfolio.jsx';
 import FirewallDecisions from './components/FirewallDecisions.jsx';
 import StoryCards from './components/StoryCards.jsx';
+import ProofBadges from './components/ProofBadges.jsx';
 import { IconRules, IconPortfolio, IconFirewall, IconReceipts, IconReplay, IconMenu, IconClose, Mark } from './components/icons.jsx';
 import LiveBoard from './components/LiveBoard.jsx';
 import WebGLField from './components/WebGLField.jsx';
@@ -103,10 +104,10 @@ const GUIDES = {
     },
     {
       img: '/images/mark-wallet.png?v=4',
-      title: 'Pass or retain',
+      title: 'Pass or block',
       fit: 'icon',
-      blurb: 'A pass still needs your signature. A retain is logged, not lost.',
-      detail: 'A pass still waits for your signature. A retain is logged with its evidence so you can see why nothing moved.',
+      blurb: 'A pass still needs your signature. A block is logged, and nothing moves.',
+      detail: 'A pass still waits for your signature. A block is logged with its evidence so you can see why nothing moved.',
     },
   ],
   receipts: [
@@ -314,11 +315,11 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [menuOpen]);
 
-  const navItems = NAV.map((item) => (
-    item.id === 'firewall' && decisions.length
-      ? { ...item, label: `${item.label} (${decisions.length})` }
-      : item
-  ));
+  const navItems = NAV.map((item) => {
+    if (item.id === 'firewall' && decisions.length) return { ...item, label: `${item.label} (${decisions.length})` };
+    if (item.id === 'replay' && judgeDemo) return { ...item, badge: 'judge demo' };
+    return item;
+  });
 
   return (
     <>
@@ -627,7 +628,7 @@ function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWalle
       <div className="hero-copy">
         <span className="hero-eyebrow">
           <span className="dot" aria-hidden="true" />
-          {health ? `Live on ${health.network}` : 'Solana'}
+          {health ? 'Live on Solana devnet' : 'Solana devnet'}
         </span>
         <h1 className="hero-title">Keep the source.<br /><em>Program the earnings.</em></h1>
         <p className="hero-sub">
@@ -635,7 +636,7 @@ function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWalle
         </p>
 
         {judgeDemo && (
-          <div className="demo-banner" role="status">JUDGE DEMO — seeded data, funds cannot move.</div>
+          <div className="demo-banner" role="status">JUDGE DEMO — Solana devnet, TEST USDC only. This page cannot move funds.</div>
         )}
 
         <ul className="hero-stats">
@@ -648,7 +649,8 @@ function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWalle
           <span className="k">Principal Used</span>
           <span className="v">$0.00</span>
         </div>
-        <p className="hero-stats-caption">Seeded judge scenario: $10,000 protected, $186.40 generated earnings toward OpenAI PreStocks.</p>
+        <p className="hero-stats-caption">Solana devnet: 10,000 TEST USDC protected, 186.40 TEST USDC generated and deployed to OAIx-DEMO via the PreStocks Devnet/Judge Adapter.</p>
+        {judgeDemo && <ProofBadges />}
 
         <div className="hero-cta">
           <button type="button" className="btn primary" onClick={onViewProof}>

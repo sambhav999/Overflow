@@ -60,6 +60,15 @@ const mislabeled = list.filter((r) => r.verification === 'VERIFIED_ON_CHAIN' || 
 mislabeled.length === 0
   ? pass('seeded receipts are DEMO / SEEDED, never LIVE')
   : fail('seeded receipts are DEMO / SEEDED, never LIVE', JSON.stringify(mislabeled.map((r) => ({ id: r.id, mode: r.mode, verification: r.verification }))));
+const seededWithSig = list.filter((r) => r.verification === 'SEEDED' && r.signature);
+seededWithSig.length === 0 ? pass('SEEDED receipts carry no signature') : fail('SEEDED receipts carry no signature');
+const devnet = list.find((r) => r.verification === 'DEVNET_TX');
+devnet?.signature && devnet?.outputs?.devnet?.transactions?.length
+  ? pass('hero receipt links real devnet txs', `${devnet.outputs.devnet.transactions.length} txs`)
+  : fail('hero receipt links real devnet txs');
+devnet?.preserved === true && devnet?.outputs?.devnet?.principalAfterTestUsdc === '10000'
+  ? pass('proof preserved === true, Principal Used = $0.00')
+  : fail('proof preserved === true, Principal Used = $0.00', JSON.stringify({ preserved: devnet?.preserved }));
 
 const rules = await get('/rules', auth);
 const hero = (rules.body?.rules || []).find((r) => r.sourceType === 'KAMINO_USDC');

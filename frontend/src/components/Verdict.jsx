@@ -3,6 +3,7 @@ const LABEL = {
   UNVERIFIED: 'UNVERIFIED',
   FAILED: 'FAILED VERIFICATION',
   SEEDED: 'SEEDED DEMO',
+  DEVNET_TX: 'REAL DEVNET TX',
 };
 
 const PROOF_LABEL = {
@@ -27,7 +28,7 @@ export default function Verdict({ verification, note, proofs }) {
   return (
     <div style={{ marginTop: 12 }}>
       <span className={`verdict verdict-${verification}`}>
-        {verification === 'VERIFIED_ON_CHAIN' ? '✓' : verification === 'FAILED' ? '✕' : verification === 'SEEDED' ? '◆' : '!'}
+        {verification === 'VERIFIED_ON_CHAIN' || verification === 'DEVNET_TX' ? '✓' : verification === 'FAILED' ? '✕' : verification === 'SEEDED' ? '◆' : '!'}
         {LABEL[verification] ?? verification}
       </span>
       {note && <div className="hint" style={{ marginTop: 8 }}>{note}</div>}

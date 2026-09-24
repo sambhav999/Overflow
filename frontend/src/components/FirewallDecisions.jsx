@@ -24,7 +24,7 @@ export default function FirewallDecisions({ decisions }) {
         return (
           <div key={d.id} style={{ borderTop: '1px solid var(--rule)', paddingTop: 12, marginTop: 12 }}>
             <div className="decision" style={{ borderTop: 'none', padding: 0 }}>
-              <span className={`decision-badge ${d.outcome}`}>{d.outcome === 'BLOCKED' ? 'RETAIN' : 'PASS'}</span>
+              <span className={`decision-badge ${d.outcome}`}>{d.outcome === 'BLOCKED' ? 'BLOCK' : 'PASS'}</span>
               <div className="decision-main">
                 <div className="decision-title">
                   {d.destinationSymbol}{' '}

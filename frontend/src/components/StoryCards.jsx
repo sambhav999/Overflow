@@ -13,7 +13,7 @@ export default function StoryCards({ receipts, decisions, klacx, open, onOpen })
   const storyA = receipts.find((r) => r.kind === 'DIVIDEND');
   const storyC = receipts.find((r) => r.kind === 'INTEREST');
   const decisionC = decisions.find((d) => d.ruleId === storyC?.ruleId) ?? decisions[0] ?? null;
-  const cOutcome = decisionC?.outcome === 'BLOCKED' ? 'RETAIN' : 'PASS';
+  const cOutcome = decisionC?.outcome === 'BLOCKED' ? 'BLOCK' : 'PASS';
   const naivePct = klacx?.wouldHaveExtracted?.fractionBps != null
     ? (Number(klacx.wouldHaveExtracted.fractionBps) / 100).toFixed(0)
     : null;
@@ -26,13 +26,13 @@ export default function StoryCards({ receipts, decisions, klacx, open, onOpen })
     },
     {
       id: 'B', letter: 'B', icon: 'shield', title: 'KLACx 10:1 Split',
-      badge: 'RETAIN', badgeClass: 'card-retain',
-      sub: naivePct ? `naive path ≈${naivePct}%` : 'seeded evaluation',
+      badge: 'BLOCKED', badgeClass: 'card-retain',
+      sub: naivePct ? `apparent ${naivePct}% → no funds move` : 'no funds move',
       ready: Boolean(klacx),
     },
     {
       id: 'C', letter: 'C', icon: 'dest', title: 'Kamino → OpenAI PreStocks',
-      badge: cOutcome, badgeClass: cOutcome === 'RETAIN' ? 'card-retain' : 'card-pass', sub: 'via Capital Firewall',
+      badge: cOutcome, badgeClass: cOutcome === 'BLOCK' ? 'card-retain' : 'card-pass', sub: 'via Capital Firewall',
       ready: Boolean(storyC),
     },
   ];
@@ -93,8 +93,12 @@ function KlacxResult({ result }) {
   return (
     <div>
       <div className="eyebrow" style={{ color: 'var(--warn)', fontWeight: 600 }}>
-        RETAIN · {result.classification?.eventType}
+        BLOCKED · {result.classification?.eventType}
       </div>
+      <div className="klacx-summary">
+        10:1 split → apparent {pct != null ? `${Number(pct).toFixed(0)}%` : 'most of the position as'} extractable value → <strong>BLOCKED</strong>
+      </div>
+      <div className="hint">No funds moved. No receipt was written.</div>
       <div className="notice warn" style={{ marginTop: 10 }}>{result.classification?.detail ?? result.reason}</div>
       {result.wouldHaveExtracted?.dividendRawAtomic && (
         <>

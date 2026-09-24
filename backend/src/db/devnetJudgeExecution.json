@@ -1,0 +1,36 @@
+{
+  "cluster": "devnet",
+  "adapter": {
+    "label": "PreStocks Devnet/Judge Adapter",
+    "underlying": "OpenAI PreStocks",
+    "assetSymbol": "OAIx-DEMO",
+    "assetDecimals": 8,
+    "referencePriceUsd": "1000.00",
+    "executionPriceUsd": "1010.00",
+    "priceSource": "DETERMINISTIC_MARKET_INPUT",
+    "premiumBps": 100,
+    "authority": "HxEC9MREaoQVHUMap4FYa4vpHTn4LjHvhtdqA54TaJCV"
+  },
+  "judgeUser": "8SDVA81TeTX6B13qGLTWhX2PiNpWLen29cA3fSByNgHk",
+  "mints": {
+    "testUsdc": "CKH1NsBm88HhqKMySyapjEhwiV5yxqUdwAtmMyJdodgi",
+    "oaixDemo": "8kt7tDS6h4BWiphUffgQBLFFUUL4wAc6WCPZMpU7Tw9u"
+  },
+  "amounts": {
+    "principalTestUsdc": "10000",
+    "earningsTestUsdc": "186.40",
+    "earningsAtomic": "186400000",
+    "oaixDemoRaw": "18455445"
+  },
+  "signatures": {
+    "deposit": "37PBUKx6ADT8div7V5us2oETQ6JWbCvHApNZ8ivrUJdXQ1Js9jXg21u8whuqqHyeQ2PURppZxShahnAHQDAgpgRw",
+    "earnings": "43rXj8hz7brxrb7zcu8PWToPjG4WhgMufPE7icix3q8sVYjisYJn7PV3xZ7yUjyUMoyBbz7mkTwqUwLZxTkgMytf",
+    "transfer": "4bLd5QmzQDNfueouLDwUvQRh9vzoLA3q5iu6uSsvjm3DVxUpK46QZ4WQJ1JjvhwcFPzBsHTEJAzGGArdBUgNzZQ2",
+    "allocation": "3rXCmkEQYz8cEa5sGoZz2rERVMR9G9DoFMZD36jJBbYKMwTtkVcZzi9kjFZKXyFSgYBmLe86U6PtfB5TRhGCDD7C"
+  },
+  "after": {
+    "userTestUsdc": "10000",
+    "userOaixDemo": "0.18455445"
+  },
+  "executedAt": "2026-09-24T23:30:16.329Z"
+}

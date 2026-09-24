@@ -55,7 +55,7 @@ export default function ReplayPanel() {
               MRKx · dividend PASS
             </button>
             <button type="button" className="pill warn" onClick={() => { setSymbol('KLACx'); setQuery('KLACx'); }}>
-              KLACx · 10:1 split RETAIN
+              KLACx · 10:1 split BLOCKED
             </button>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); setQuery(symbol); }}>
@@ -121,7 +121,7 @@ export default function ReplayPanel() {
       ) : (
         <div className="card tight" style={{ borderColor: 'var(--warn)' }}>
           <div className="eyebrow" style={{ color: 'var(--warn)', fontWeight: 600 }}>
-            RETAIN · {result.classification?.eventType}
+            BLOCKED · {result.classification?.eventType}
           </div>
           <div className="notice warn">{result.classification?.detail ?? result.reason}</div>
           {result.wouldHaveExtracted?.dividendRawAtomic && (

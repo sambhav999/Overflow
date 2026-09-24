@@ -5,7 +5,7 @@
 <p align="center"><b>Keep the source. Program the earnings.</b></p>
 
 <p align="center">
-  Live app: <a href="https://noisy-sky-fa9c.rj838486.workers.dev">noisy-sky-fa9c.rj838486.workers.dev</a>
+  Live app: <a href="https://overflow-solana.netlify.app">overflow-solana.netlify.app</a>
   · API health: <a href="https://solana-poc.onrender.com/api/health">solana-poc.onrender.com/api/health</a>
   · Program (devnet): <code>nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp</code>
 </p>
@@ -22,7 +22,7 @@ For pre-IPO/private-market exposure, Overflow integrates PreStocks exclusively. 
 
 | | |
 |---|---|
-| Live demo | https://noisy-sky-fa9c.rj838486.workers.dev |
+| Live demo | https://overflow-solana.netlify.app |
 | Health check | https://solana-poc.onrender.com/api/health |
 | Demo Mode | The public deployment is **devnet + Judge Demo only**. `DEMO_MODE=true` signs a judge in with no wallet, against an in-memory database. Fund-moving and registry submits are hard-blocked (`blockedInDemoMode`). `/api/health` reports `mode: "JUDGE_DEMO"`. See [Judge quick-start](#judge-quick-start). |
 
@@ -38,6 +38,32 @@ for the hero rule (Kamino USDC → PreStocks OPENAI):
 | `post_receipt` | `4bVHYZfUyku39w3JbEduqHiAyD9sWLUrceWcKJJFKprFaZjL8M334DZXsakn7GEEutAnFCts6WunZVrKUSLSWEa2` | [Solscan (devnet)](https://solscan.io/tx/4bVHYZfUyku39w3JbEduqHiAyD9sWLUrceWcKJJFKprFaZjL8M334DZXsakn7GEEutAnFCts6WunZVrKUSLSWEa2?cluster=devnet) |
 
 Both independently verified with `solana confirm <signature> --url devnet -v`: `Status: Ok`, `Finalized`.
+
+### Devnet money movement (Judge Demo hero)
+
+Real SPL transfers on devnet with **TEST USDC** (a devnet mint, not Circle USDC), produced by
+[`backend/scripts/devnet-judge-execution.mjs`](backend/scripts/devnet-judge-execution.mjs):
+10,000 TEST USDC protected + 186.40 TEST USDC generated. Only the 186.40 moves; the
+10,000 is re-read afterwards and is untouched.
+
+| Step | Signature | Explorer |
+|---|---|---|
+| 186.40 TEST USDC → PreStocks Devnet/Judge Adapter | `4bLd5QmzQDNfueouLDwUvQRh9vzoLA3q5iu6uSsvjm3DVxUpK46QZ4WQJ1JjvhwcFPzBsHTEJAzGGArdBUgNzZQ2` | [Solscan (devnet)](https://solscan.io/tx/4bLd5QmzQDNfueouLDwUvQRh9vzoLA3q5iu6uSsvjm3DVxUpK46QZ4WQJ1JjvhwcFPzBsHTEJAzGGArdBUgNzZQ2?cluster=devnet) |
+| Adapter issues 0.18455445 OAIx-DEMO | `3rXCmkEQYz8cEa5sGoZz2rERVMR9G9DoFMZD36jJBbYKMwTtkVcZzi9kjFZKXyFSgYBmLe86U6PtfB5TRhGCDD7C` | [Solscan (devnet)](https://solscan.io/tx/3rXCmkEQYz8cEa5sGoZz2rERVMR9G9DoFMZD36jJBbYKMwTtkVcZzi9kjFZKXyFSgYBmLe86U6PtfB5TRhGCDD7C?cluster=devnet) |
+
+Balance deltas on the transfer (`getTransaction`, devnet): judge wallet 10,186.40 → 10,000 TEST USDC,
+adapter 0 → 186.40.
+
+**PreStocks Devnet/Judge Adapter** ([`prestocksDevnet.js`](backend/src/adapters/providers/prestocksDevnet.js))
+is *not* the production PreStocks contract — PreStocks has no devnet deployment. It issues
+`OAIx-DEMO`, a devnet stand-in for OpenAI PreStocks, at a **deterministic** price (reference
+$1,000.00, execution $1,010.00 → +1.00% premium, inside the rule's +1.50% limit → PASS).
+
+| Label | Meaning |
+|---|---|
+| REAL DEVNET TX | the transactions above exist on Solana devnet |
+| REAL OVERFLOW LOGIC | floor, firewall and split checks are the production code paths |
+| DETERMINISTIC MARKET INPUT | the OpenAI PreStocks price is fixed so every run is reproducible |
 
 > **The program records the receipt; the wallet holds the assets.** The registry does not
 > independently enforce or mathematically guarantee capital preservation — it is an
@@ -56,9 +82,10 @@ No funded wallet or RPC key needed. The app signs you in automatically.
 
 This submission is **devnet + demo only**. There is no mainnet path.
 
-The public API seeds two completed executions (a dividend and a Kamino harvest to
-**OpenAI PreStocks**), labeled **SEEDED DEMO** (`mode: "DEMO"`) — never `LIVE` and never
-`VERIFIED_ON_CHAIN`. Story B is a **seeded blocked evaluation** of the known KLACx 10:1
+The hero receipt (Story C, TEST USDC → OAIx-DEMO) is backed by the real devnet transactions
+above: `mode: "DEVNET"`, verification `DEVNET_TX` — never `LIVE` and never
+`VERIFIED_ON_CHAIN`, because its market input is deterministic. Story A (MRKx dividend) has
+no chain transaction and stays labeled **SEEDED DEMO** (`mode: "DEMO"`). Story B is a **seeded blocked evaluation** of the known KLACx 10:1
 split, run through `classifyCorporateAction` and `dividendPlausibilityCheck` at boot.
 It does not call the xStocks API, so the judge demo still works if that API is down.
 No receipt or signature is written for Story B.
@@ -69,7 +96,7 @@ on a Live Devnet instance (`mode: "LIVE_DEVNET"`, `DEMO_MODE` unset).
 ```bash
 cd backend
 npm ci
-npm test                      # 82 tests, no network required
+npm test                      # 84 tests, no network required
 npm run simulate:judge        # http://localhost:8787, DEMO_MODE=true
 ```
 
@@ -256,7 +283,7 @@ guarantee.
 │                         └─ replay     ─┤                                             │
 │                                        ▼                                             │
 │   core/   units · dividend · principal · guards · idempotency · ruleEngine           │
-│           └── BigInt only · no SDK imports · no signing · 40 tests                   │
+│           └── BigInt only · no SDK imports · no signing                              │
 │                                        │                                             │
 │   adapters/ ─┬─ xstocks/  assets · multiplier · corporateActions                     │
 │              ├─ jupiter/  order → sign → execute   (API key stays here)              │
@@ -389,7 +416,7 @@ Requires **Node 22+** (uses the built-in `node:sqlite`, so there is no native bu
 cd backend
 cp .env.example .env          # set SOLANA_RPC_URL at minimum
 npm ci
-npm test                      # 82 tests, no network required
+npm test                      # 84 tests, no network required
 npm run dev                   # http://localhost:8787
 
 # frontend
@@ -443,7 +470,7 @@ would break a core feature without `npm ci` itself ever failing.
 cd backend && npm test
 ```
 
-82 tests across 10 files, no network required. Highlights:
+84 tests across 11 files, no network required. Highlights:
 
 - the preservation inequality holds across 400 different raw balances
 - rounding always favours the user; a sub-unit dividend floors to zero and refuses to swap
@@ -518,10 +545,10 @@ cd backend && npm test
 - [ ] `SOLANA_RPC_URL` points at a dedicated provider
 - [ ] `JUPITER_API_KEY` set
 - [ ] `KAMINO_USDC_VAULT` verified live
-- [x] Deployed URL: frontend — https://noisy-sky-fa9c.rj838486.workers.dev · API — https://solana-poc.onrender.com
+- [x] Deployed URL: frontend — https://overflow-solana.netlify.app · API — https://solana-poc.onrender.com
 - [ ] Render env for the **judge** backend: `NETWORK=devnet`, `DEMO_MODE=true`
       (see [deploy/devnet.md](deploy/devnet.md)). No mainnet env.
-- [ ] Demo video: two moments only — $10,000 protected → $186.40 → OpenAI PreStocks →
-      Firewall → Principal used $0.00; and KLACx 10:1 → naive ~90% → Overflow RETAINS
+- [ ] Demo video: $10K protected → $186.40 earned → Firewall PASS → PreStocks allocation →
+      unsafe split BLOCKED → $0 principal used → real devnet receipt
 - [x] Confirmed transaction signatures: see [Proof](#proof) — real, devnet, independently
       verified with `solana confirm`

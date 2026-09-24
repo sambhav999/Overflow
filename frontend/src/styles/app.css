@@ -1483,7 +1483,7 @@ input[type=checkbox] { accent-color: var(--flow); width: 15px; height: 15px; }
   background: var(--equity-soft); color: var(--equity);
   font-family: var(--mono); font-weight: 700; font-size: 13px;
 }
-.story-card-title { font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+.story-card-title { font-weight: 650; font-size: 15px; letter-spacing: -.01em; color: var(--ink); }
 .story-card-badge {
   display: inline-flex; width: fit-content; font-family: var(--mono); font-size: 11.5px;
   font-weight: 700; letter-spacing: .06em; padding: 3px 8px; border-radius: 5px;
@@ -1710,3 +1710,15 @@ input[type=checkbox] { accent-color: var(--flow); width: 15px; height: 15px; }
   .decision { grid-template-columns: 1fr; gap: 5px; }
   .decision-amt { text-align: left; }
 }
+
+/* Judge Demo proof labels: what is real vs. what is deterministic. */
+.proof-badges { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 12px 0 0; padding: 0; }
+.proof-badge { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--rule); }
+.proof-badge.real { background: var(--pass-soft); color: var(--pass); border-color: var(--pass-border); }
+.proof-badge.fixed { background: var(--warn-soft); color: var(--warn); border-color: var(--warn-border); }
+.verdict-DEVNET_TX { background: var(--pass-soft); color: var(--pass); border-color: var(--pass-border); }
+.devnet-proof { margin-top: 12px; }
+.devnet-proof .receipt-row a { font-family: var(--mono); }
+.receipt-row .v.locked { color: var(--preserved); }
+.klacx-summary { margin-top: 10px; font-family: var(--mono); font-size: 15px; color: var(--warn); }
+.klacx-summary strong { font-weight: 700; }
