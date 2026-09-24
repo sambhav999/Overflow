@@ -11,8 +11,8 @@
 </p>
 
 > Overflow does not consume protected source principal to fund the destination.
-> It keeps the source asset and principal in the user's wallet and routes only
-> newly generated value — classified dividends or yield above a stored floor.
+> It routes only newly generated value — classified dividends or yield above a
+> stored floor.
 
 ---
 

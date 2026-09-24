@@ -48,8 +48,8 @@ const GUIDES = {
     {
       img: '/images/explain-keep.png?v=4',
       title: 'What stays',
-      blurb: 'Your equity or USDC principal never leaves your wallet.',
-      detail: 'The source position stays in your wallet. Overflow never takes custody of the equity or the USDC principal. Only newly generated value is eligible to move.',
+      blurb: 'Overflow does not consume protected source principal to fund the destination.',
+      detail: 'Overflow never takes custody of the equity or the USDC principal. Only newly generated value is eligible to move.',
     },
     {
       img: '/images/explain-gate.png?v=4',
