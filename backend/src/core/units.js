@@ -111,6 +111,15 @@ export const minBig = (a, b) => (a < b ? a : b);
  * JSON.parse would coerce it to a double first; this preserves the literal the
  * server actually sent so the multiplier we store is the multiplier we were given.
  */
+/** Human USD string -> USDC atomic (6 dp). Rejects anything that is not a number. */
+export function usdToUsdcAtomic(value) {
+  const str = String(value ?? '').trim();
+  if (!str) return null;
+  const [whole = '0', frac = ''] = str.split('.');
+  if (!/^\d+$/.test(whole) || (frac && !/^\d+$/.test(frac))) return null;
+  return (BigInt(whole) * 1_000_000n + BigInt((frac.slice(0, 6) || '0').padEnd(6, '0'))).toString();
+}
+
 export function extractRawJsonNumber(jsonText, field) {
   const m = new RegExp(`"${field}"\\s*:\\s*(-?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)`).exec(jsonText);
   return m ? m[1] : null;

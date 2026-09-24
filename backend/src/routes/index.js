@@ -13,7 +13,8 @@ import { limiterConfig } from '../adapters/jupiter/client.js';
 import { getSlot, getSolBalanceLamports, getTokenBalance, getMintInfo, getAccountOwnerProgram, SYSTEM_PROGRAM, USDC_MINT, getSignaturesForAddress } from '../adapters/solana/rpc.js';
 import { refreshBaselines } from '../services/drift.js';
 import { createNonce, verifySignIn, requireSession, issueSession, SESSION_TTL_MS } from '../auth/session.js';
-import { DEMO_WALLET } from '../db/seedDemo.js';
+import { DEMO_WALLET, getSeededKlacxEvaluation } from '../db/seedDemo.js';
+import { usdToUsdcAtomic } from '../core/units.js';
 import { lastXstocksSuccess } from '../adapters/xstocks/health.js';
 import { listAllDestinations, getDestination, PROVIDERS } from '../services/destinations.js';
 import { GUARD_MODES } from '../core/marketGuard.js';
@@ -82,31 +83,30 @@ function ownedRule(req, res) {
  * deposit/withdrawal), so a judge running the seeded in-memory demo can
  * review the whole flow up to signing but can never actually move funds.
  *
- * Deliberately NOT placed on the registry routes (/onchain/submit) -- those
- * only write a PDA (rent paid by the signer, standard account creation; see
- * programs/overflow-registry/src/lib.rs) and never move product funds, so a
- * real connected wallet can still register the hero rule on-chain for real
- * even while demo mode protects everyone from an actual swap.
+ * Also placed on registry prepare/submit: Judge Demo broadcasts nothing.
+ * Real registration and signing stay on Live Devnet only.
  *
  * Returns true (and has already responded) if the request was blocked.
  */
 function blockedInDemoMode(res) {
   if (process.env.DEMO_MODE !== 'true') return false;
   res.status(403).json({
-    error: 'Judge Demo Mode: fund-moving routes are disabled. This request would broadcast a real transaction.',
+    error: 'Judge Demo Mode: this route would broadcast a real transaction. Use Live Devnet to register or sign.',
     code: 'DEMO_MODE_BLOCKED',
   });
   return true;
 }
 
+function operatingMode() {
+  return process.env.DEMO_MODE === 'true' ? 'JUDGE_DEMO' : 'LIVE_DEVNET';
+}
+
 router.get('/health', asyncRoute(async (_req, res) => {
-  const demoMode = process.env.DEMO_MODE === 'true';
+  const mode = operatingMode();
   const [slot, kamino] = await Promise.all([getSlot().catch(() => null), sdkStatus().catch((err) => ({ available: false, error: err.message }))]);
-  // Only computed in demo mode, and never allowed to fail the health check --
-  // a judge deployment reporting 500 because a demo-only readout hiccuped
-  // would defeat the entire point of this endpoint.
+  // Only computed in judge demo, and never allowed to fail the health check.
   let seeded = null;
-  if (demoMode) {
+  if (mode === 'JUDGE_DEMO') {
     try {
       seeded = { rules: listRules(DEMO_WALLET).length, receipts: listReceipts(DEMO_WALLET).length };
     } catch (err) {
@@ -121,12 +121,9 @@ router.get('/health', asyncRoute(async (_req, res) => {
     jupiterKeyConfigured: Boolean(process.env.JUPITER_API_KEY),
     jupiterThrottle: limiterConfig(),
     kamino,
-    // Surfaced so the UI can prefill rather than asking a user to paste a vault
-    // address. A rule may still override it per-rule.
     defaultKaminoVault: process.env.KAMINO_USDC_VAULT || null,
     registry: registryStatus(),
-    mode: 'LIVE',
-    demoMode,
+    mode,
     seeded,
     lastXstocksFetchAt: lastXstocksSuccess(),
   });
@@ -185,7 +182,11 @@ router.get('/auth/session', asyncRoute(async (req, res) => {
  */
 router.get('/demo/session', asyncRoute(async (_req, res) => {
   if (process.env.DEMO_MODE !== 'true') return res.status(404).json({ error: `no route for GET /demo/session` });
-  res.json({ ...issueSession(DEMO_WALLET), demo: true });
+  res.status(200).json({
+    ...issueSession(DEMO_WALLET),
+    demo: true,
+    klacx: getSeededKlacxEvaluation(),
+  });
 }));
 
 /* ---------------------------------------------------------------- assets -- */
@@ -278,13 +279,25 @@ router.post('/rules', asyncRoute(async (req, res) => {
     resolvedSourceMint = USDC_MINT;
   }
 
+  const resolvedFloor = { atomic: null, source: null };
+  if (b.sourceType !== 'XSTOCK_DIVIDEND') {
+    const usd = b.principalFloorUsd != null && b.principalFloorUsd !== ''
+      ? usdToUsdcAtomic(b.principalFloorUsd)
+      : '10000000000';
+    if (!usd) return res.status(400).json({ error: 'principalFloorUsd is not a valid dollar amount' });
+    resolvedFloor.atomic = usd;
+    resolvedFloor.source = 'SERVER_RESOLVED';
+  }
+
+  const defaultVault = process.env.KAMINO_USDC_VAULT || null;
+
   const rule = createRule({
     wallet: sessionWallet,
     sourceType: b.sourceType,
-    sourceId: b.sourceId,
+    sourceId: b.sourceType === 'XSTOCK_DIVIDEND' ? (b.sourceId ?? b.sourceSymbol) : (b.sourceId || defaultVault),
     sourceMint: resolvedSourceMint,
-    sourceSymbol: b.sourceSymbol ?? null,
-    sourceDecimals: b.sourceDecimals ?? 8,
+    sourceSymbol: b.sourceType === 'XSTOCK_DIVIDEND' ? (b.sourceSymbol ?? b.sourceId) : 'USDC',
+    sourceDecimals: b.sourceType === 'XSTOCK_DIVIDEND' ? 8 : 6,
     earningsType: b.sourceType === 'XSTOCK_DIVIDEND' ? 'DIVIDEND' : 'INTEREST',
     destinationMint: destination.mint,
     destinationSymbol: destination.symbol,
@@ -298,19 +311,24 @@ router.post('/rules', asyncRoute(async (req, res) => {
     maxSlippageBps: b.maxSlippageBps ?? 50,
     maxPriceImpactBps: b.maxPriceImpactBps ?? 100,
     allowOvernight: Boolean(b.allowOvernight),
-    principalFloorAtomic: b.principalFloorAtomic ?? null,
-    principalFloorSource: b.principalFloorAtomic ? (b.principalFloorSource ?? 'USER_CONFIRMED') : null,
+    // Floor and mints are resolved here. Client principalFloorAtomic / mints
+    // are ignored so a browser cannot point earnings at an arbitrary token
+    // or invent a floor the server did not convert.
+    principalFloorAtomic: resolvedFloor.atomic,
+    principalFloorSource: resolvedFloor.source,
     safetyBufferAtomic: b.safetyBufferAtomic ?? null,
-    kaminoVault: b.kaminoVault ?? process.env.KAMINO_USDC_VAULT ?? null,
+    kaminoVault: b.sourceType === 'XSTOCK_DIVIDEND' ? null : (b.kaminoVault || defaultVault),
     kaminoShareMint: b.kaminoShareMint ?? null,
   });
   // Record what the position looks like now, so later drift is detectable.
   const baselined = await refreshBaselines(rule).catch(() => rule);
-  const onchain = await prepareCreateRuleTx({ rule: baselined }).catch((err) => ({
-    available: false,
-    reason: 'PREPARE_FAILED',
-    detail: err.message,
-  }));
+  const onchain = process.env.DEMO_MODE === 'true'
+    ? { available: false, reason: 'DEMO_MODE_BLOCKED', detail: 'Judge Demo Mode does not prepare on-chain registration.' }
+    : await prepareCreateRuleTx({ rule: baselined }).catch((err) => ({
+      available: false,
+      reason: 'PREPARE_FAILED',
+      detail: err.message,
+    }));
   res.status(201).json({ rule: baselined, onchain });
 }));
 
@@ -409,6 +427,7 @@ router.get('/rules/:id/evaluate', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/prepare', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const prepared = await prepareExecution(rule);
   if (!prepared.ok) return res.status(409).json(prepared);
   res.json(prepared);
@@ -439,6 +458,7 @@ router.post('/rules/:id/submit', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/onchain/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const { signedTransaction } = req.body || {};
   if (!signedTransaction) return res.status(400).json({ error: 'signedTransaction is required' });
   const submitted = await submitRegistryTx({ signedTransaction });
@@ -460,6 +480,7 @@ router.post('/rules/:id/onchain/submit', asyncRoute(async (req, res) => {
 
 router.post('/rules/:id/receipts/:receiptId/onchain/submit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const receipt = getReceipt(req.params.receiptId);
   if (!receipt || receipt.ruleId !== rule.id || receipt.wallet !== rule.wallet) {
     return res.status(404).json({ error: 'receipt not found' });
@@ -485,12 +506,14 @@ router.post('/rules/:id/receipts/:receiptId/onchain/submit', asyncRoute(async (r
 
 router.post('/rules/:id/onchain/prepare', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const onchain = await prepareCreateRuleTx({ rule });
   res.json({ rule, onchain });
 }));
 
 router.post('/rules/:id/receipts/:receiptId/onchain/prepare', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const receipt = getReceipt(req.params.receiptId);
   if (!receipt || receipt.ruleId !== rule.id || receipt.wallet !== rule.wallet) {
     return res.status(404).json({ error: 'receipt not found' });
@@ -509,6 +532,7 @@ router.post('/rules/:id/receipts/:receiptId/onchain/prepare', asyncRoute(async (
  */
 router.post('/rules/:id/deposit', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const { usdcAtomic } = req.body || {};
   if (!usdcAtomic) return res.status(400).json({ error: 'usdcAtomic is required' });
   const prepared = await prepareDeposit({ rule, usdcAtomic });
@@ -547,6 +571,7 @@ router.post('/rules/:id/harvest/withdraw/submit', asyncRoute(async (req, res) =>
  */
 router.post('/rules/:id/withdraw-principal', asyncRoute(async (req, res) => {
   const rule = ownedRule(req, res); if (!rule) return;
+  if (blockedInDemoMode(res)) return;
   const prepared = await preparePrincipalWithdrawal({ rule, requestedAtomic: req.body?.requestedAtomic });
   res.status(prepared.ok ? 200 : 409).json(prepared);
 }));

@@ -23,6 +23,7 @@ export function buildProofPayload(receipt) {
 
   return {
     schema: PROOF_SCHEMA,
+    ...(receipt.mode === 'DEMO' || receipt.verification === 'SEEDED' ? { label: 'SEEDED DEMO' } : {}),
     ruleId: receipt.ruleId,
     receiptId: receipt.id,
     wallet: receipt.wallet,

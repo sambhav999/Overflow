@@ -14,8 +14,9 @@ import { refreshAssets } from './services/assets.js';
  * this after would have no effect. Real external APIs (xStocks, PreStocks,
  * Jupiter) and the public RPC fallback (already the default when
  * SOLANA_RPC_URL is unset) are still used; only persistence is ephemeral and
- * only fund-moving routes are blocked (see routes/index.js's
- * blockedInDemoMode).
+ * fund-moving and registry routes are blocked (see routes/index.js
+ * blockedInDemoMode). Story B is a seeded blocked evaluation and never
+ * calls the xStocks API.
  */
 const DEMO_MODE = process.env.DEMO_MODE === 'true';
 if (DEMO_MODE) process.env.DATABASE_PATH = ':memory:';
@@ -80,7 +81,7 @@ refreshAssets({ force: true })
 
 app.listen(PORT, () => {
   console.log(`Overflow API on http://localhost:${PORT}`);
-  if (DEMO_MODE) console.log('  Mode:    JUDGE DEMO MODE — in-memory DB, seeded data, fund-moving routes blocked');
+  if (DEMO_MODE) console.log('  Mode:    JUDGE_DEMO — in-memory DB, seeded data, no broadcasts');
   console.log(`  RPC:     ${process.env.SOLANA_RPC_URL ? 'configured' : 'PUBLIC (rate-limited; set SOLANA_RPC_URL)'}`);
   const lim = limiterConfig();
   console.log(`  Jupiter: ${lim.keyed ? 'API key set' : 'keyless'} · throttled to ${lim.mainRps} req/s (execute ${lim.executeRps}/s)`);

@@ -19,7 +19,54 @@ import { computePolicyHash } from '../core/policyHash.js';
 import { signProof, verifierPublicKey } from '../core/verifierKey.js';
 import { buildProofPayload } from '../services/proof.js';
 import { principalPreserved } from '../services/verify.js';
-import { extractDividend, assertSourcePreserved } from '../core/dividend.js';
+import { extractDividend, assertSourcePreserved, dividendPlausibilityCheck } from '../core/dividend.js';
+import { classifyCorporateAction } from '../adapters/xstocks/corporateActions.js';
+
+/** Real KLACx 10:1 split from xStocks history. Seeded so Story B never calls that API. */
+const KLACX_SPLIT_10_1 = { before: '1.000892302917', after: '10.00892302917' };
+const KLACX_RAW_ATOMIC = '1000000000';
+
+let klacxEvaluation = null;
+
+/**
+ * Story B: run the known 10:1 split through the same two safety controls a live
+ * replay would. Result is a blocked evaluation only -- no receipt, no signature.
+ */
+export function buildKlacxBlockedEvaluation() {
+  const classification = classifyCorporateAction({ reason: 'Split' });
+  const math = extractDividend({
+    rawBalanceAtomic: KLACX_RAW_ATOMIC,
+    multiplierBefore: KLACX_SPLIT_10_1.before,
+    multiplierAfter: KLACX_SPLIT_10_1.after,
+    tokenDecimals: 8,
+  });
+  const plausibility = dividendPlausibilityCheck(math);
+  const fractionBps = (BigInt(math.dividendRawAtomic) * 10000n) / BigInt(KLACX_RAW_ATOMIC);
+  return {
+    ok: false,
+    mode: 'DEMO',
+    status: 'BLOCKED',
+    reason: classification.supported ? plausibility.reason : 'UNSUPPORTED_EVENT_TYPE',
+    classification,
+    plausibility,
+    wouldHaveExtracted: {
+      dividendRawAtomic: math.dividendRawAtomic,
+      fractionBps: fractionBps.toString(),
+    },
+    note: 'Overflow refuses this event. The figure above is what a naive implementation that only watched the multiplier would have routed.',
+    event: {
+      symbol: 'KLACx',
+      reason: 'Split',
+      multiplierBefore: KLACX_SPLIT_10_1.before,
+      multiplierAfter: KLACX_SPLIT_10_1.after,
+      source: 'SEEDED',
+    },
+  };
+}
+
+export function getSeededKlacxEvaluation() {
+  return klacxEvaluation;
+}
 
 /** Deterministic, obviously-not-a-real-holder address -- never signs anything. */
 export const DEMO_WALLET = base58Encode(createHash('sha256').update('overflow-judge-demo-wallet').digest());
@@ -76,7 +123,7 @@ export function seedDemoData() {
     redeemableAtomic: '10186400000',
     safetyBufferAtomic: rule.safetyBufferAtomic,
     harvestableAtomic: harvestedAtomic,
-    destinationSymbol: rule.destinationSymbol,
+    destinationSymbol: 'OpenAI PreStocks',
     destinationDecimals: rule.destinationDecimals,
   };
   const outputs = {
@@ -100,7 +147,7 @@ export function seedDemoData() {
     ruleId: rule.id,
     wallet: DEMO_WALLET,
     kind: 'INTEREST',
-    mode: 'LIVE',
+    mode: 'DEMO',
     status: 'CONFIRMED',
     executionKey,
     // No signature: this receipt is seeded, not a real chain event. A fabricated
@@ -115,7 +162,7 @@ export function seedDemoData() {
     // The numbers are real formula output (see comments above), but no
     // devnet transaction backs it, so it must never claim a live proof did.
     verification: 'SEEDED',
-    verificationNote: 'Seeded demo data: the floor/earnings math ran through the real preservation formula, but no transaction was submitted or verified on-chain.',
+    verificationNote: 'SEEDED DEMO: the floor/earnings math ran through the real preservation formula. No transaction was submitted or verified on-chain.',
     preserved,
     proofs: outputs.proofs,
     destinationCategory: rule.destinationCategory,
@@ -225,7 +272,7 @@ export function seedDemoData() {
     ruleId: dividendRule.id,
     wallet: DEMO_WALLET,
     kind: 'DIVIDEND',
-    mode: 'LIVE',
+    mode: 'DEMO',
     status: 'CONFIRMED',
     executionKey: dividendExecutionKey,
     signature: null,
@@ -234,7 +281,7 @@ export function seedDemoData() {
     outputs: dividendOutputs,
     quote: null,
     verification: 'SEEDED',
-    verificationNote: 'Seeded demo data: run through the real dividend extraction formula, but no transaction was submitted or verified on-chain.',
+    verificationNote: 'SEEDED DEMO: run through the real dividend extraction formula. No transaction was submitted or verified on-chain.',
     preserved: dividendPreserved,
     proofs: dividendOutputs.proofs,
     destinationCategory: dividendRule.destinationCategory,
@@ -246,5 +293,8 @@ export function seedDemoData() {
   const dividendSignature = signProof(JSON.stringify(buildProofPayload(dividendReceipt)));
   dividendReceipt = updateReceipt(dividendReceipt.id, { verifierSignature: dividendSignature, verifierPubkey: verifierPublicKey() });
 
-  console.log(`[demo] seeded 2 rules + 2 SEEDED/DEMO receipts for wallet ${DEMO_WALLET}`);
+  // Story B: blocked evaluation only. Never a receipt. Never an xStocks fetch.
+  klacxEvaluation = buildKlacxBlockedEvaluation();
+
+  console.log(`[demo] seeded 2 rules + 2 SEEDED DEMO receipts + KLACx blocked evaluation for wallet ${DEMO_WALLET}`);
 }

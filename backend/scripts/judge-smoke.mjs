@@ -32,51 +32,49 @@ async function post(path, payload = {}, headers = {}) {
 
 console.log(`\nOverflow judge:smoke — ${BASE}\n`);
 
-// --- health ---
 const health = await get('/health').catch((e) => ({ status: 0, body: { error: e.message } }));
 health.status === 200 ? pass('GET /health -> 200') : fail('GET /health -> 200', `got ${health.status}`);
-health.body?.demoMode === true ? pass('demoMode is true') : fail('demoMode is true', JSON.stringify(health.body?.demoMode));
+health.body?.mode === 'JUDGE_DEMO' ? pass('mode is JUDGE_DEMO') : fail('mode is JUDGE_DEMO', JSON.stringify(health.body?.mode));
+health.body?.demoMode === undefined ? pass('no duplicate demoMode field') : fail('no duplicate demoMode field', 'demoMode still present');
 health.body?.network !== 'mainnet-beta' ? pass('no mainnet config', `network=${health.body?.network}`) : fail('no mainnet config', 'network is mainnet-beta');
 (health.body?.seeded?.rules ?? 0) >= 2 ? pass('seed data present', `${health.body.seeded.rules} rules`) : fail('seed data present', JSON.stringify(health.body?.seeded));
 
-// --- demo session ---
 const session = await get('/demo/session').catch((e) => ({ status: 0, body: { error: e.message } }));
 session.status === 200 ? pass('GET /demo/session -> 200') : fail('GET /demo/session -> 200', `got ${session.status}`);
 const token = session.body?.token;
 token ? pass('demo session issues a token') : fail('demo session issues a token');
 const auth = token ? { authorization: `Bearer ${token}` } : {};
 
-// --- seeded labels: never VERIFIED_ON_CHAIN ---
+const klacx = session.body?.klacx;
+const blocked = klacx?.ok === false && klacx?.classification?.supported === false;
+blocked ? pass('seeded KLACx is BLOCKED through real classification') : fail('seeded KLACx is BLOCKED through real classification', JSON.stringify(klacx));
+const naiveFraction = Number(klacx?.wouldHaveExtracted?.fractionBps ?? 0) / 100;
+naiveFraction > 50
+  ? pass('naive harvest would have sold most of the position', `${naiveFraction}%`)
+  : fail('naive harvest would have sold most of the position', `${naiveFraction}%`);
+
 const receipts = await get('/receipts', auth).catch((e) => ({ status: 0, body: { error: e.message } }));
 const list = receipts.body?.receipts || [];
 list.length > 0 ? pass('seeded receipts present', `${list.length} receipts`) : fail('seeded receipts present');
-const mislabeled = list.filter((r) => r.verification === 'VERIFIED_ON_CHAIN');
+const mislabeled = list.filter((r) => r.verification === 'VERIFIED_ON_CHAIN' || r.mode === 'LIVE');
 mislabeled.length === 0
-  ? pass('seeded receipts never claim VERIFIED_ON_CHAIN')
-  : fail('seeded receipts never claim VERIFIED_ON_CHAIN', `${mislabeled.length} row(s) mislabeled`);
-const correctlyLabeled = list.filter((r) => r.verification === 'SEEDED');
-correctlyLabeled.length === list.length
-  ? pass('seeded receipts are labeled SEEDED')
-  : fail('seeded receipts are labeled SEEDED', `${list.length - correctlyLabeled.length} row(s) not labeled SEEDED`);
+  ? pass('seeded receipts are DEMO / SEEDED, never LIVE')
+  : fail('seeded receipts are DEMO / SEEDED, never LIVE', JSON.stringify(mislabeled.map((r) => ({ id: r.id, mode: r.mode, verification: r.verification }))));
 
-// --- Story B: KLACx 10:1 split blocks through the real classification path ---
-const events = await get('/replay/KLACx/events').catch((e) => ({ status: 0, body: { error: e.message } }));
-const splitEvent = (events.body?.events || []).find((e) => e.eventType === 'SPLIT' || /split/i.test(e.reason || ''));
-if (!splitEvent) {
-  fail('KLACx split event found', 'no SPLIT event in replay history right now');
+const rules = await get('/rules', auth);
+const hero = (rules.body?.rules || []).find((r) => r.sourceType === 'KAMINO_USDC');
+if (!hero) {
+  fail('hero Kamino rule present');
 } else {
-  pass('KLACx split event found', splitEvent.corporateActionId);
-  const replay = await post(`/replay/KLACx`, {
-    corporateActionId: splitEvent.corporateActionId,
-    rawBalanceAtomic: '1000000000',
-    tokenDecimals: 8,
-  });
-  const blocked = replay.body?.ok === false && replay.body?.classification?.supported === false;
-  blocked ? pass('KLACx split is BLOCKED through real classification') : fail('KLACx split is BLOCKED through real classification', JSON.stringify(replay.body));
-  const naiveFraction = Number(replay.body?.wouldHaveExtracted?.fractionBps ?? 0) / 100;
-  naiveFraction > 50
-    ? pass('naive harvest would have sold most of the position', `${naiveFraction}%`)
-    : fail('naive harvest would have sold most of the position', `${naiveFraction}%`);
+  pass('hero Kamino rule present', hero.id);
+  const blockedSubmit = await post(`/rules/${hero.id}/submit`, { signedTransaction: 'AA', requestId: 'x', executionKey: 'y' }, auth);
+  blockedSubmit.status === 403 && blockedSubmit.body?.code === 'DEMO_MODE_BLOCKED'
+    ? pass('fund-moving submit is blocked')
+    : fail('fund-moving submit is blocked', `${blockedSubmit.status} ${JSON.stringify(blockedSubmit.body)}`);
+  const blockedRegistry = await post(`/rules/${hero.id}/onchain/submit`, { signedTransaction: 'AA' }, auth);
+  blockedRegistry.status === 403 && blockedRegistry.body?.code === 'DEMO_MODE_BLOCKED'
+    ? pass('registry submit is blocked')
+    : fail('registry submit is blocked', `${blockedRegistry.status} ${JSON.stringify(blockedRegistry.body)}`);
 }
 
 console.log(`\n${failures ? `${failures} FAILURE(S)` : 'JUDGE SMOKE PASSED'}\n`);

@@ -25,6 +25,7 @@ export default function Receipt({ receipt }) {
     <div className="receipt">
       <div className="receipt-title">
         PROOF OF PRESERVATION — {isDividend ? 'DIVIDEND RULE' : 'INTEREST RULE'} · {status}
+        {(mode === 'DEMO' || receipt.verification === 'SEEDED') && ' · SEEDED DEMO'}
         {mode === 'REPLAY' && ' · REPLAY'}
       </div>
       <Verdict

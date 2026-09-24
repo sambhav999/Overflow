@@ -8,7 +8,9 @@ That string goes on the **backend only**. The frontend does not need it. Phantom
 
 Vite inlines `VITE_*` at `npm run dev` / `npm run build`. Changing Render does not update the live UI. Rebuild the frontend after editing `frontend/.env`.
 
-Jupiter, Kamino, and xStocks are mainnet products with no meaningful devnet liquidity. A full-devnet backend reliably proves `create_rule` / `post_receipt` on-chain; a live Kamino harvest or Jupiter swap against devnet may fail or return no route. This submission is devnet-only -- there is no mainnet deploy path in this repo.
+Jupiter, Kamino, and xStocks are mainnet products with no meaningful devnet liquidity. A Live Devnet backend can prove `create_rule` / `post_receipt` on-chain; a live Kamino harvest or Jupiter swap against devnet may fail or return no route.
+
+This submission is **devnet + Judge Demo only**. There is no mainnet deploy path. The public judge API runs with `DEMO_MODE=true` (`mode: "JUDGE_DEMO"`) and broadcasts nothing. Unset `DEMO_MODE` only on a separate Live Devnet instance (`mode: "LIVE_DEVNET"`).
 
 ## Commands to run (in order)
 
@@ -66,6 +68,7 @@ After step 6 succeeds, add the env values below to `backend/.env` and `frontend/
 OVERFLOW_REGISTRY_PROGRAM_ID=nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp
 NETWORK=devnet
 SOLANA_RPC_URL=https://api.devnet.solana.com
+DEMO_MODE=true
 CORS_ORIGIN=http://localhost:5173,https://noisy-sky-fa9c.rj838486.workers.dev
 SESSION_SECRET=
 ```

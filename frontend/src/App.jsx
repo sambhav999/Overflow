@@ -39,7 +39,7 @@ const HERO_RULE_PRESET = {
 const HERO_STATS = {
   protectedCapitalUsd: '10,000.00',
   earningsAvailableUsd: '186.40',
-  destination: 'OpenAI stock',
+  destination: 'OpenAI PreStocks',
   firewallStatus: 'PASS',
 };
 
@@ -187,6 +187,9 @@ export default function App() {
   const [error, setError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openStory, setOpenStory] = useState(null);
+  const [klacx, setKlacx] = useState(null);
+
+  const judgeDemo = health?.mode === 'JUDGE_DEMO';
 
   useEffect(() => {
     api.health().then((h) => {
@@ -194,12 +197,12 @@ export default function App() {
       // Judge Demo Mode: sign in as the seeded demo wallet with no wallet extension
       // required. Guarded on both ends against a real wallet's own silent
       // restore (WalletBar.jsx) winning the race and being clobbered by this.
-      if (h?.demoMode && !currentSession()) {
+      if (h?.mode === 'JUDGE_DEMO') {
         api.demoSession().then((session) => {
-          if (currentSession()) return;
-          setSession(session);
+          if (session.klacx) setKlacx(session.klacx);
+          if (!currentSession()) setSession(session);
           setConnection((c) => c || { address: session.wallet, demo: true });
-          setSignedIn((s) => s || true);
+          setSignedIn(true);
         }).catch(() => {});
       }
     }).catch((e) => setError(`Backend unreachable: ${e.message}`));
@@ -213,11 +216,12 @@ export default function App() {
     setTab('rules');
     // A demo session expiring (30 min TTL) shouldn't strand a judge mid-review
     // behind a wallet prompt -- silently re-establish it.
-    if (health?.demoMode) {
+    if (health?.mode === 'JUDGE_DEMO') {
       api.demoSession().then((session) => {
         setSession(session);
         setConnection({ address: session.wallet, demo: true });
         setSignedIn(true);
+        if (session.klacx) setKlacx(session.klacx);
       }).catch(() => {});
     }
   }), [health]);
@@ -381,7 +385,7 @@ export default function App() {
 
       {tab === 'rules' && (
         <div className="story-cards-wrap">
-          <StoryCards receipts={receipts} decisions={decisions} open={openStory} onOpen={setOpenStory} />
+          <StoryCards receipts={receipts} decisions={decisions} klacx={klacx} open={openStory} onOpen={setOpenStory} />
           <LiveBoard variant="stream" showFlow />
         </div>
       )}
@@ -412,7 +416,7 @@ export default function App() {
             </div>
           </div>
 
-          {!connection && (
+          {!connection && !judgeDemo && (
             <EmptyState
               mark="wallet"
               title="Connect a wallet to begin"
@@ -424,7 +428,7 @@ export default function App() {
             </EmptyState>
           )}
 
-          {connection && !signedIn && (
+          {connection && !signedIn && !judgeDemo && (
             <EmptyState
               mark="wallet"
               title="Sign in to continue"
@@ -573,7 +577,8 @@ export default function App() {
           )}
           <div className="footer-legal">
             <p>
-              Overflow preserves a source position and routes only the value it newly generates.
+              Overflow does not consume protected source principal to fund the destination.
+              It preserves a source position and routes only the value it newly generates.
               For an xStocks dividend that means isolating exactly the raw Token-2022 quantity the multiplier
               change created; for Kamino it means spending only value above a stored principal floor.
             </p>
@@ -615,7 +620,8 @@ function NavList({ items, tab, onSelect, className, label }) {
 
 function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWallet }) {
   const registryLive = Boolean(health?.registry?.configured);
-  const liveDevnet = Boolean(health && !health.demoMode && registryLive);
+  const judgeDemo = health?.mode === 'JUDGE_DEMO';
+  const liveDevnet = Boolean(health && health.mode === 'LIVE_DEVNET' && registryLive);
   return (
     <section className="hero">
       <div className="hero-copy">
@@ -628,7 +634,7 @@ function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWalle
           Only new earnings can move, only after you sign, and only inside your policy band.
         </p>
 
-        {health?.demoMode && (
+        {judgeDemo && (
           <div className="demo-banner" role="status">JUDGE DEMO — seeded data, funds cannot move.</div>
         )}
 
@@ -642,7 +648,7 @@ function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWalle
           <span className="k">Principal Used</span>
           <span className="v">$0.00</span>
         </div>
-        <p className="hero-stats-caption">A real example from below: $10,000 in Kamino USDC, its earnings routed to OpenAI stock.</p>
+        <p className="hero-stats-caption">Seeded judge scenario: $10,000 protected, $186.40 generated earnings toward OpenAI PreStocks.</p>
 
         <div className="hero-cta">
           <button type="button" className="btn primary" onClick={onViewProof}>
@@ -654,7 +660,8 @@ function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWalle
             </button>
           )}
         </div>
-        {signedIn && <p className="hero-live-note">Signed in — this exact rule is live in your list below ↓</p>}
+        {judgeDemo && signedIn && <p className="hero-live-note">Judge Demo loaded — no wallet required.</p>}
+        {!judgeDemo && signedIn && <p className="hero-live-note">Signed in. This exact rule is live in your list below.</p>}
       </div>
     </section>
   );

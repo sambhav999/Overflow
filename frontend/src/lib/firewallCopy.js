@@ -41,7 +41,7 @@ export function describeVerification(receipt = {}) {
     return { label: 'Not executed', tone: '' };
   }
   if (receipt.verification === 'SEEDED') {
-    return { label: 'SEEDED / DEMO — not a live proof', tone: 'warn' };
+    return { label: 'SEEDED DEMO', tone: 'warn' };
   }
   if (receipt.verification === 'VERIFIED_ON_CHAIN') {
     return { label: '$0.00 ✓ verified on devnet', tone: 'preserved-yes' };

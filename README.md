@@ -10,7 +10,8 @@
   · Program (devnet): <code>nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp</code>
 </p>
 
-> Overflow keeps the source asset and principal in the user's wallet and routes only
+> Overflow does not consume protected source principal to fund the destination.
+> It keeps the source asset and principal in the user's wallet and routes only
 > newly generated value — classified dividends or yield above a stored floor.
 
 ---
@@ -21,7 +22,7 @@
 |---|---|
 | Live demo | https://noisy-sky-fa9c.rj838486.workers.dev |
 | Health check | https://solana-poc.onrender.com/api/health |
-| Demo Mode | The public deployment runs with `DEMO_MODE=true`. No Phantom wallet is required — the app signs you in automatically as a seeded demo wallet, against an in-memory database, with every fund-moving route hard-blocked server-side (`blockedInDemoMode`, `backend/src/routes/index.js`). See [Judge quick-start](#judge-quick-start) below. |
+| Demo Mode | The public deployment is **devnet + Judge Demo only**. `DEMO_MODE=true` signs a judge in with no wallet, against an in-memory database. Fund-moving and registry submits are hard-blocked (`blockedInDemoMode`). `/api/health` reports `mode: "JUDGE_DEMO"`. See [Judge quick-start](#judge-quick-start). |
 
 ## Proof
 
@@ -49,13 +50,19 @@ mainnet deploy path in this repo.
 
 ## Judge quick-start
 
-No funded wallet or RPC key needed. The app signs you in automatically. Runs real external
-APIs (xStocks, PreStocks, Jupiter) against an in-memory database seeded with two completed
-executions (a dividend and a Kamino harvest), labeled **SEEDED / DEMO** — never
-`VERIFIED_ON_CHAIN`, since no transaction backs them — plus a seeded Capital Firewall
-decision, and hard-blocks every fund-moving route so nothing can actually be signed or
-broadcast. A third story — a real 10:1 split correctly refused — is one click away in
-Replay, using real historical data, no seeding needed.
+No funded wallet or RPC key needed. The app signs you in automatically.
+
+This submission is **devnet + demo only**. There is no mainnet path.
+
+The public API seeds two completed executions (a dividend and a Kamino harvest to
+**OpenAI PreStocks**), labeled **SEEDED DEMO** (`mode: "DEMO"`) — never `LIVE` and never
+`VERIFIED_ON_CHAIN`. Story B is a **seeded blocked evaluation** of the known KLACx 10:1
+split, run through `classifyCorporateAction` and `dividendPlausibilityCheck` at boot.
+It does not call the xStocks API, so the judge demo still works if that API is down.
+No receipt or signature is written for Story B.
+
+Fund-moving routes and registry submits return 403. Real registration and signing stay
+on a Live Devnet instance (`mode: "LIVE_DEVNET"`, `DEMO_MODE` unset).
 
 ```bash
 cd backend
@@ -90,6 +97,8 @@ Two earnings sources in V1:
 
 The receipt is the product: it shows what was earned, what moved, and that the source
 position survived — with the inputs needed to re-derive every number.
+
+**Overflow does not consume protected source principal to fund the destination.**
 
 ---
 
@@ -406,7 +415,7 @@ just `rm -rf` on a fresh clone) immediately before this document was last update
 | `POLL_INTERVAL_MS` | no | Blank = poll only on demand via `POST /api/poll`. |
 | `CRON_SECRET` | no | Required header for `/api/poll` when set. |
 | `VERIFIER_SIGNING_KEY` | **yes in production** | Ed25519 seed the server signs Proof of Preservation attestations with. Not a wallet key. |
-| `DEMO_MODE` | no | `true` runs Judge Demo Mode — see Judge quick-start above. Must be unset in a real deploy. |
+| `DEMO_MODE` | no | `true` runs Judge Demo Mode (`mode: "JUDGE_DEMO"`). The public judge deploy uses this. Unset only for a Live Devnet instance. |
 
 **frontend/.env** holds no secrets — Vite inlines `VITE_*` into the bundle.
 
@@ -508,10 +517,9 @@ cd backend && npm test
 - [ ] `JUPITER_API_KEY` set
 - [ ] `KAMINO_USDC_VAULT` verified live
 - [x] Deployed URL: frontend — https://noisy-sky-fa9c.rj838486.workers.dev · API — https://solana-poc.onrender.com
-- [ ] Render env vars set to activate the on-chain registry on the **live** backend
-      (verified locally only, in this session — see [deploy/devnet.md](deploy/devnet.md)):
-      `OVERFLOW_REGISTRY_PROGRAM_ID=nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp`,
-      `NETWORK=devnet`, `SOLANA_RPC_URL=https://api.devnet.solana.com`, `DEMO_MODE=true`
-- [ ] Demo video: _______
+- [ ] Render env for the **judge** backend: `NETWORK=devnet`, `DEMO_MODE=true`
+      (see [deploy/devnet.md](deploy/devnet.md)). No mainnet env.
+- [ ] Demo video: two moments only — $10,000 protected → $186.40 → OpenAI PreStocks →
+      Firewall → Principal used $0.00; and KLACx 10:1 → naive ~90% → Overflow RETAINS
 - [x] Confirmed transaction signatures: see [Proof](#proof) — real, devnet, independently
       verified with `solana confirm`

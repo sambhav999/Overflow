@@ -1,42 +1,15 @@
-import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { api } from '../lib/api.js';
 import { formatRaw } from '../lib/format.js';
 import { Mark } from './icons.jsx';
 import Receipt from './Receipt.jsx';
 import FirewallEvidence from './FirewallEvidence.jsx';
 
 /**
- * The three seeded stories, immediately under the hero. Each opens directly
- * to its completed result -- no form, no second submit. A and C reuse the
- * receipts/decisions the app already fetched; B runs the real replay call
- * once on mount (classifyCorporateAction refusing a real KLACx 10:1 split)
- * so the card is ready the moment a judge clicks it.
+ * The three stories under the hero. A and C reuse seeded receipts/decisions.
+ * B is a seeded blocked evaluation (classifyCorporateAction + plausibility)
+ * so the judge demo never depends on the xStocks API.
  */
-export default function StoryCards({ receipts, decisions, open, onOpen }) {
-  const [klacx, setKlacx] = useState(null);
-  const [klacxError, setKlacxError] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { events } = await api.replayEvents('KLACx');
-        const splitEvent = (events || []).find((e) => e.eventType === 'SPLIT' || /split/i.test(e.reason || ''));
-        if (!splitEvent) { if (!cancelled) setKlacxError('No recorded split event for KLACx right now.'); return; }
-        const result = await api.replay('KLACx', {
-          corporateActionId: splitEvent.corporateActionId,
-          rawBalanceAtomic: '1000000000',
-          tokenDecimals: 8,
-        });
-        if (!cancelled) setKlacx(result);
-      } catch (err) {
-        if (!cancelled) setKlacxError(err.message);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
+export default function StoryCards({ receipts, decisions, klacx, open, onOpen }) {
   const storyA = receipts.find((r) => r.kind === 'DIVIDEND');
   const storyC = receipts.find((r) => r.kind === 'INTEREST');
   const decisionC = decisions.find((d) => d.ruleId === storyC?.ruleId) ?? decisions[0] ?? null;
@@ -54,8 +27,8 @@ export default function StoryCards({ receipts, decisions, open, onOpen }) {
     {
       id: 'B', letter: 'B', icon: 'shield', title: 'KLACx 10:1 Split',
       badge: 'RETAIN', badgeClass: 'card-retain',
-      sub: naivePct ? `naive path ≈${naivePct}%` : (klacxError ? 'unavailable right now' : 'checking real history…'),
-      ready: Boolean(klacx) || Boolean(klacxError),
+      sub: naivePct ? `naive path ≈${naivePct}%` : 'seeded evaluation',
+      ready: Boolean(klacx),
     },
     {
       id: 'C', letter: 'C', icon: 'dest', title: 'Kamino → OpenAI PreStocks',
@@ -94,7 +67,7 @@ export default function StoryCards({ receipts, decisions, open, onOpen }) {
             <button type="button" className="story-card-modal-close" onClick={() => onOpen(null)} aria-label="Close">×</button>
             {open === 'A' && (storyA ? <Receipt receipt={storyA} /> : <div className="notice">Not seeded yet.</div>)}
             {open === 'B' && (
-              klacx ? <KlacxResult result={klacx} /> : <div className="notice">{klacxError || 'Loading real KLACx history…'}</div>
+              klacx ? <KlacxResult result={klacx} /> : <div className="notice">Seeded KLACx evaluation is not available.</div>
             )}
             {open === 'C' && (
               <>
@@ -112,7 +85,6 @@ export default function StoryCards({ receipts, decisions, open, onOpen }) {
 
 function KlacxResult({ result }) {
   if (result.ok) {
-    // Real code path found this event plausible; nothing to refuse.
     return <div className="notice ok">This KLACx event passed the plausibility check.</div>;
   }
   const pct = result.wouldHaveExtracted?.fractionBps != null

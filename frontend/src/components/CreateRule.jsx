@@ -54,13 +54,10 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
     setBusy(true); setError(null);
     try {
       const [destinationProvider, destinationSymbol] = destinationKey.split(':');
-      const source = check?.asset;
       const created = await api.createRule({
         sourceType,
-        sourceId: isDividend ? sourceSymbol : (kaminoVault || undefined),
+        sourceId: isDividend ? sourceSymbol : undefined,
         sourceSymbol: isDividend ? sourceSymbol : 'USDC',
-        sourceMint: isDividend ? source?.mint : 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-        sourceDecimals: isDividend ? 8 : 6,
         destinationProvider,
         destinationSymbol,
         marketGuardMode: guardMode,
@@ -69,12 +66,11 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
         minExecutionUsdAtomic: toAtomic(minExecutionUsd, 6),
         maxSlippageBps: Number(maxSlippageBps),
         allowOvernight,
-        principalFloorAtomic: isDividend ? null : toAtomic(principalFloorUsd, 6),
-        principalFloorSource: isDividend ? null : 'USER_CONFIRMED',
-        kaminoVault: isDividend ? null : kaminoVault,
+        principalFloorUsd: isDividend ? undefined : (showAdvanced ? principalFloorUsd : undefined),
+        kaminoVault: isDividend ? null : (showAdvanced && kaminoVault ? kaminoVault : undefined),
       });
       try {
-        if (created.onchain?.available && created.onchain.transaction) {
+        if (created.onchain?.available && created.onchain.transaction && !connection?.demo) {
           await settleCreateRuleOnchain({
             connection,
             ruleId: created.rule.id,
@@ -108,7 +104,7 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
   const bandValid = guardMode === 'NONE' || (Number.isInteger(Number(maxPremiumBps)) && maxPremiumBps !== ''
     && (minPremiumBps === '' || Number(minPremiumBps) <= Number(maxPremiumBps)));
   const canSubmit = !busy && !sourceBlocked && destinationKey && guardValid && bandValid
-    && (isDividend || (principalFloorUsd && kaminoVault));
+    && (!isDividend || Boolean(sourceSymbol));
 
   return (
     <form className="card" onSubmit={submit}>
@@ -122,42 +118,18 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
       )}
 
       <div className="rule-sentence">
-        <span className="kw">WHEN</span>
-        <div className="grid2">
-          <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
-            <option value="XSTOCK_DIVIDEND">My xStock pays a dividend</option>
-            <option value="KAMINO_USDC">My USDC savings earn interest</option>
-          </select>
-          {isDividend ? (
-            <input type="text" value={sourceSymbol} onChange={(e) => setSourceSymbol(e.target.value.trim())} placeholder="e.g. MCDx" />
-          ) : (
-            <div>
-              <input type="text" value={kaminoVault} onChange={(e) => setKaminoVault(e.target.value.trim())} placeholder="Kamino USDC vault address" />
-              {kaminoVault && kaminoVault === defaultKaminoVault && (
-                <div className="hint">Using the server's configured Kamino USDC vault.</div>
-              )}
-            </div>
-          )}
-        </div>
-
-        <span className="kw">KEEP</span>
+        <span className="kw">SOURCE</span>
         <div>
-          {isDividend ? (
-            <div className="hint" style={{ marginTop: 0 }}>
-              Pre-event equity exposure. Your holding is never reduced below what it was worth before the dividend.
-            </div>
-          ) : (
-            <>
-              <input type="number" min="0" step="1" value={principalFloorUsd}
-                     onChange={(e) => setPrincipalFloorUsd(e.target.value)} placeholder="Principal floor in USDC" />
-              <div className="hint">
-                Stored independently and never re-derived from the position value. Confirm the amount you deposited.
-              </div>
-            </>
+          <select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>
+            <option value="KAMINO_USDC">Kamino USDC</option>
+            <option value="XSTOCK_DIVIDEND">xStock dividend</option>
+          </select>
+          {isDividend && (
+            <input type="text" style={{ marginTop: 10 }} value={sourceSymbol} onChange={(e) => setSourceSymbol(e.target.value.trim())} placeholder="e.g. MCDx" />
           )}
         </div>
 
-        <span className="kw">SEND TO</span>
+        <span className="kw">DESTINATION</span>
         <select value={destinationKey} onChange={(e) => {
           const next = destinations.find((d) => `${d.provider}:${d.symbol}` === e.target.value);
           setDestinationKey(e.target.value);
@@ -191,12 +163,31 @@ export default function CreateRule({ connection, destinations, defaultKaminoVaul
         <div className="rule-advanced-toggle-row">
           <button type="button" className="rule-advanced-toggle" onClick={() => setShowAdvanced((v) => !v)}>
             {showAdvanced ? '−' : '+'} Advanced
-            <span className="hint" style={{ margin: 0 }}>firewall band, execution threshold, timing</span>
+            <span className="hint" style={{ margin: 0 }}>vault, floor, firewall band, execution</span>
           </button>
           {!showAdvanced && !bandValid && <div className="notice bad">The floor must be at or below the cap.</div>}
         </div>
 
         <div className={`rule-advanced-fields${showAdvanced ? '' : ' collapsed'}`}>
+          {!isDividend && (
+            <>
+              <span className="kw">VAULT</span>
+              <div>
+                <input type="text" value={kaminoVault} onChange={(e) => setKaminoVault(e.target.value.trim())} placeholder="Kamino USDC vault address" />
+                {kaminoVault && kaminoVault === defaultKaminoVault && (
+                  <div className="hint">Using the server's configured Kamino USDC vault.</div>
+                )}
+              </div>
+              <span className="kw">FLOOR</span>
+              <div>
+                <input type="number" min="0" step="1" value={principalFloorUsd}
+                       onChange={(e) => setPrincipalFloorUsd(e.target.value)} placeholder="Principal floor in USDC" />
+                <div className="hint">
+                  Server converts this to atomic USDC. Leave closed to use the $10,000 default.
+                </div>
+              </div>
+            </>
+          )}
           <span className="kw">FIREWALL</span>
           <div>
             <select value={guardValid ? guardMode : 'NONE'} onChange={(e) => setGuardMode(e.target.value)}>
