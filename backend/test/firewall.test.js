@@ -75,7 +75,7 @@ test('the executable quote outranks the provider price', async () => {
 test('it fails closed with no token price, instead of every no-price provider route silently dying', async () => {
   const rule = { marketGuardMode: 'TOKEN_PREMIUM', maxPremiumBps: 100 };
   // A private-market provider that publishes a mark but no token price.
-  const t = { symbol: 'T-OPENAI', provider: 'PRESTOCKS', markPriceUsd: '812.79', providerTokenPriceUsd: null };
+  const t = { symbol: 'TEST-OPENAI', provider: 'PRESTOCKS', markPriceUsd: '812.79', providerTokenPriceUsd: null };
   const noQuote = await evaluateFirewall(rule, t);
   assert.equal(noQuote.decision, 'BLOCK');
   assert.equal(noQuote.breach, 'NO_EVIDENCE');

@@ -14,6 +14,8 @@
 > It routes only newly generated value — classified dividends or yield above a
 > stored floor.
 
+For pre-IPO/private-market exposure, Overflow integrates PreStocks exclusively. xStocks are used only for public-equity and corporate-action flows.
+
 ---
 
 ## Demo
