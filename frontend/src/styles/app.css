@@ -373,7 +373,7 @@ a { color: var(--flow); }
   font-size: 16px;
   line-height: 1.55;
   margin: 14px 0 0;
-  max-width: 46ch;
+  max-width: 62ch;
 }
 .hero-example {
   font-size: 14.5px;

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Overflow API - programmable earnings layer for onchain assets",
+  "description": "Overflow is a Capital Firewall for tokenized assets. It separates protected principal from genuine earnings, allows only verified earnings to move under policy, and records Proof of Preservation on Solana devnet.",
   "engines": {
     "node": ">=22"
   },

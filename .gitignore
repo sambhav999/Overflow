@@ -2,3 +2,7 @@
 **/.DS_Store
 .wrangler/
 .playwright-cli/
+
+# Local demo recording artifacts
+abc.mp3
+demo-video/

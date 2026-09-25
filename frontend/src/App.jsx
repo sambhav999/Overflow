@@ -635,7 +635,7 @@ function Hero({ health, signedIn, onViewProof, onRegisterOnchain, onConnectWalle
         </span>
         <h1 className="hero-title">Keep the source.<br /><em>Program the earnings.</em></h1>
         <p className="hero-sub">
-          Only new earnings can move, only after you sign, and only inside your policy band.
+          Overflow is a Capital Firewall for tokenized assets. It separates protected principal from genuine earnings, allows only verified earnings to move under policy, and records Proof of Preservation on Solana devnet.
         </p>
 
         {judgeDemo && (

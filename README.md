@@ -10,9 +10,11 @@
   · Program (devnet): <code>nAAStFqtSRsQbuzUARufKs8URPB6sEeUhHnTDK4HqGp</code>
 </p>
 
+> Overflow is a Capital Firewall for tokenized assets. It separates protected
+> principal from genuine earnings, allows only verified earnings to move under
+> policy, and records Proof of Preservation on Solana devnet.
+>
 > Overflow does not consume protected source principal to fund the destination.
-> It routes only newly generated value — classified dividends or yield above a
-> stored floor.
 
 For pre-IPO/private-market exposure, Overflow integrates PreStocks exclusively. xStocks are used only for public-equity and corporate-action flows.
 
@@ -113,9 +115,9 @@ Point the frontend at the local demo backend as usual — the on-chain registry 
 below is optional and can be skipped entirely for a judge run. Or skip local setup entirely
 and use the live deployment linked above.
 
-Overflow is a programmable earnings layer for onchain assets. It preserves a source
-position and routes only the value that position **newly generates** into a destination
-the user chose in advance.
+Overflow is a Capital Firewall for tokenized assets. It separates protected principal
+from genuine earnings, allows only verified earnings to move under policy, and records
+Proof of Preservation on Solana devnet.
 
 Two earnings sources in V1:
 
