@@ -70,6 +70,14 @@ devnet?.preserved === true && devnet?.outputs?.devnet?.principalAfterTestUsdc ==
   ? pass('proof preserved === true, Principal Used = $0.00')
   : fail('proof preserved === true, Principal Used = $0.00', JSON.stringify({ preserved: devnet?.preserved }));
 
+const chain = await get('/devnet/proof').catch((e) => ({ status: 0, body: { error: e.message } }));
+chain.body?.allConfirmed
+  ? pass('devnet txs confirmed on devnet', `${chain.body.transactions.length} txs`)
+  : fail('devnet txs confirmed on devnet', JSON.stringify(chain.body?.transactions?.map((t) => t.status) ?? chain.body));
+chain.body?.balances?.principalUntouched
+  ? pass('10,000 TEST USDC principal untouched on devnet')
+  : fail('10,000 TEST USDC principal untouched on devnet', JSON.stringify(chain.body?.balances));
+
 const rules = await get('/rules', auth);
 const hero = (rules.body?.rules || []).find((r) => r.sourceType === 'KAMINO_USDC');
 if (!hero) {

@@ -1722,3 +1722,16 @@ input[type=checkbox] { accent-color: var(--flow); width: 15px; height: 15px; }
 .receipt-row .v.locked { color: var(--preserved); }
 .klacx-summary { margin-top: 10px; font-family: var(--mono); font-size: 15px; color: var(--warn); }
 .klacx-summary strong { font-weight: 700; }
+
+/* Home page bottom: live devnet proof. */
+.devnet-panel { margin-top: 48px; }
+.devnet-balances { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 16px 0 8px; }
+.devnet-balances > div { display: flex; flex-direction: column; gap: 4px; padding: 12px; border: 1px solid var(--rule); border-radius: 10px; }
+.devnet-balances .k { font-size: 12px; color: var(--soft); }
+.devnet-balances .v { font-family: var(--mono); font-size: 15px; }
+.devnet-tx-list { margin-top: 8px; }
+.devnet-tx-list .v { display: inline-flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.devnet-tx-list a { font-family: var(--mono); }
+.devnet-status { font-family: var(--mono); font-size: 12px; }
+.devnet-status.ok { color: var(--pass); }
+.devnet-status.no { color: var(--warn); }

@@ -25,8 +25,8 @@ import { usdToUsdcAtomic } from '../core/units.js';
 import DEVNET from './devnetJudgeExecution.json' with { type: 'json' };
 
 // The hero rule's real devnet registry transactions (README "Proof").
-const REGISTRY_CREATE_RULE_SIG = 'NNAYBVJbiaYQjFZ7JF4J9kLBfY6Sq6hj3dhKKqWBdyGxb6kU9Xy5X5DZjUzEbTKZVhRrowsA2bcuVbH4AnMbmLT';
-const REGISTRY_POST_RECEIPT_SIG = '4bVHYZfUyku39w3JbEduqHiAyD9sWLUrceWcKJJFKprFaZjL8M334DZXsakn7GEEutAnFCts6WunZVrKUSLSWEa2';
+export const REGISTRY_CREATE_RULE_SIG = 'NNAYBVJbiaYQjFZ7JF4J9kLBfY6Sq6hj3dhKKqWBdyGxb6kU9Xy5X5DZjUzEbTKZVhRrowsA2bcuVbH4AnMbmLT';
+export const REGISTRY_POST_RECEIPT_SIG = '4bVHYZfUyku39w3JbEduqHiAyD9sWLUrceWcKJJFKprFaZjL8M334DZXsakn7GEEutAnFCts6WunZVrKUSLSWEa2';
 
 /** Real KLACx 10:1 split from xStocks history. Seeded so Story B never calls that API. */
 const KLACX_SPLIT_10_1 = { before: '1.000892302917', after: '10.00892302917' };

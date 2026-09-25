@@ -24,6 +24,7 @@ import { previewRule } from '../services/preview.js';
 import { pollOnce } from '../poller/poll.js';
 import { mergeTransactionLog } from '../services/transactions.js';
 import { buildPreservationProof } from '../services/proof.js';
+import { devnetProof } from '../services/devnetProof.js';
 import { prepareCreateRuleTx, preparePostReceiptTx, submitRegistryTx, registryStatus } from '../adapters/registry/service.js';
 import { rulePda, receiptPda } from '../adapters/registry/encoder.js';
 import {
@@ -127,6 +128,12 @@ router.get('/health', asyncRoute(async (_req, res) => {
     seeded,
     lastXstocksFetchAt: lastXstocksSuccess(),
   });
+}));
+
+// Public, read-only: re-checks the Judge Demo's devnet transactions and
+// balances on Solana devnet itself. Works in every mode.
+router.get('/devnet/proof', asyncRoute(async (_req, res) => {
+  res.json(await devnetProof());
 }));
 
 /* ------------------------------------------------------------------ auth -- */

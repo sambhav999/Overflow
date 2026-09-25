@@ -16,6 +16,7 @@ import IncomePortfolio from './components/IncomePortfolio.jsx';
 import FirewallDecisions from './components/FirewallDecisions.jsx';
 import StoryCards from './components/StoryCards.jsx';
 import ProofBadges from './components/ProofBadges.jsx';
+import DevnetProofPanel from './components/DevnetProofPanel.jsx';
 import { IconRules, IconPortfolio, IconFirewall, IconReceipts, IconReplay, IconMenu, IconClose, Mark } from './components/icons.jsx';
 import LiveBoard from './components/LiveBoard.jsx';
 import WebGLField from './components/WebGLField.jsx';
@@ -555,6 +556,8 @@ export default function App() {
           <ReplayPanel />
         </>
       )}
+
+      {tab === 'rules' && <DevnetProofPanel />}
       </div>
 
         <footer className="footer">
